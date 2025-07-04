@@ -1,0 +1,664 @@
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  XMarkIcon,
+  TicketIcon,
+  UserIcon,
+  EnvelopeIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  SparklesIcon,
+  ChatBubbleLeftRightIcon,
+  DocumentTextIcon,
+  TagIcon,
+  FaceSmileIcon,
+  FaceFrownIcon,
+  ExclamationCircleIcon,
+  PaperAirplaneIcon,
+  ChevronDownIcon
+} from '@heroicons/react/24/outline';
+import { clsx } from 'clsx';
+import { Ticket, Message } from '../types';
+import { ticketService } from '../services/ticketService';
+import { knowledgeBaseService } from '../services/knowledgeBaseService';
+
+interface TicketDetailModalProps {
+  ticket: Ticket | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onTicketUpdated?: () => void;
+}
+
+const priorityColors = {
+  low: 'bg-green-100 text-green-800',
+  medium: 'bg-yellow-100 text-yellow-800',
+  high: 'bg-orange-100 text-orange-800',
+  urgent: 'bg-red-100 text-red-800'
+};
+
+const statusColors = {
+  open: 'bg-blue-100 text-blue-800',
+  in_progress: 'bg-yellow-100 text-yellow-800',
+  resolved: 'bg-green-100 text-green-800',
+  closed: 'bg-gray-100 text-gray-800'
+};
+
+const statusIcons = {
+  open: ClockIcon,
+  in_progress: ExclamationTriangleIcon,
+  resolved: CheckCircleIcon,
+  closed: XCircleIcon
+};
+
+const priorityLabels = {
+  low: 'נמוך',
+  medium: 'בינוני',
+  high: 'גבוה',
+  urgent: 'דחוף'
+};
+
+const statusLabels = {
+  open: 'פתוח',
+  in_progress: 'בטיפול',
+  resolved: 'נפתר',
+  closed: 'סגור'
+};
+
+const statusOptions = [
+  { value: 'open', label: 'פתוח', icon: ClockIcon, color: 'text-blue-600' },
+  { value: 'in_progress', label: 'בטיפול', icon: ExclamationTriangleIcon, color: 'text-yellow-600' },
+  { value: 'resolved', label: 'נפתר', icon: CheckCircleIcon, color: 'text-green-600' },
+  { value: 'closed', label: 'סגור', icon: XCircleIcon, color: 'text-gray-600' }
+];
+
+const riskLabels = {
+  low: 'נמוך',
+  medium: 'בינוני',
+  high: 'גבוה'
+};
+
+const categoryLabels = {
+  technical: 'טכני',
+  billing: 'חיוב',
+  general: 'כללי',
+  feature_request: 'בקשת תכונה'
+};
+
+export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: TicketDetailModalProps) {
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [suggestedReplies, setSuggestedReplies] = useState<string[]>([]);
+  const [currentTicket, setCurrentTicket] = useState<Ticket | null>(ticket);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [autoSolution, setAutoSolution] = useState<string | null>(null);
+  const [solutionLoading, setSolutionLoading] = useState(false);
+  const [solutionGenerated, setSolutionGenerated] = useState(false);
+  const [regeneratingSolution, setRegeneratingSolution] = useState(false);
+  const [agentActions, setAgentActions] = useState('');
+  const [savingActions, setSavingActions] = useState(false);
+
+  useEffect(() => {
+    // Reset solution state when ticket changes
+    if (ticket?.id !== currentTicket?.id) {
+      setSolutionGenerated(false);
+      setAutoSolution(null);
+    }
+  }, [ticket?.id, currentTicket?.id]);
+
+  useEffect(() => {
+    setCurrentTicket(ticket);
+    setAgentActions(ticket?.agent_actions || '');
+    if (ticket && isOpen) {
+      loadSuggestedReplies();
+      if (!solutionGenerated) {
+        loadAutoSolution();
+      }
+    }
+  }, [ticket, isOpen]);
+
+  const loadSuggestedReplies = async () => {
+    if (!ticket) return;
+    try {
+      const replies = await ticketService.getSuggestedReplies(ticket.id);
+      setSuggestedReplies(replies);
+    } catch (error) {
+      console.error('Failed to load suggested replies:', error);
+      // Fallback Hebrew replies
+      setSuggestedReplies([
+        'תודה על פנייתך. אנו בוחנים את הבעיה ונחזור אליך בהקדם האפשרי.',
+        'אני מבין את הבעיה שלך. בינתיים, אתה יכול לנסות את הפתרונות הבאים...',
+        'זה נשמע כמו בעיה ידועה. הפתרון המומלץ הוא...',
+        'אני מעביר את הבקשה שלך לצוות המתמחה. נחזור אליך תוך 24 שעות.',
+        'האם ניסית לבצע את הפעולות הבאות? זה עשוי לפתור את הבעיה.'
+      ]);
+    }
+  };
+
+  const loadAutoSolution = async () => {
+    if (!ticket) return;
+    
+    setSolutionLoading(true);
+    try {
+      const solution = await knowledgeBaseService.generateAutoSolution(
+        ticket.id, 
+        `${ticket.title}\n${ticket.description}`
+      );
+      
+      if (solution && solution.confidence_score > 0.6) {
+        setAutoSolution(solution.solution_content);
+        setSolutionGenerated(true);
+      }
+    } catch (error) {
+      console.error('Failed to load auto solution:', error);
+    } finally {
+      setSolutionLoading(false);
+    }
+  };
+
+  const regenerateAutoSolution = async () => {
+    if (!ticket) return;
+    
+    setRegeneratingSolution(true);
+    try {
+      // Force regeneration by clearing cache and generating new solution
+      const solution = await knowledgeBaseService.generateAutoSolution(
+        ticket.id, 
+        `${ticket.title}\n${ticket.description}`,
+        true // Force regeneration flag
+      );
+      
+      if (solution) {
+        setAutoSolution(solution.solution_content);
+      }
+    } catch (error) {
+      console.error('Failed to regenerate auto solution:', error);
+    } finally {
+      setRegeneratingSolution(false);
+    }
+  };
+  const handleSendMessage = async () => {
+    if (!currentTicket || !newMessage.trim()) return;
+
+    setLoading(true);
+    try {
+      await ticketService.addMessage(currentTicket.id, {
+        content: newMessage,
+        sender: 'agent',
+        sender_name: 'נציג תמיכה'
+      });
+      setNewMessage('');
+      onTicketUpdated?.();
+      
+      // Refresh ticket data
+      const updatedTicket = await ticketService.getTicket(currentTicket.id);
+      if (updatedTicket) {
+        setCurrentTicket(updatedTicket);
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!currentTicket) return;
+
+    try {
+      const updatedTicket = await ticketService.updateTicket(currentTicket.id, {
+        status: newStatus as any,
+        updated_at: new Date().toISOString()
+      });
+      
+      setCurrentTicket(updatedTicket);
+      setStatusDropdownOpen(false);
+      onTicketUpdated?.();
+    } catch (error) {
+      console.error('Failed to update ticket status:', error);
+    }
+  };
+
+  const handleUseSuggestedReply = (reply: string) => {
+    setNewMessage(reply);
+  };
+
+  const handleSaveAgentActions = async () => {
+    if (!currentTicket) return;
+
+    setSavingActions(true);
+    try {
+      const updatedTicket = await ticketService.updateTicket(currentTicket.id, {
+        agent_actions: agentActions,
+        updated_at: new Date().toISOString()
+      });
+      
+      setCurrentTicket(prev => prev ? { ...prev, agent_actions: agentActions } : prev);
+      onTicketUpdated?.();
+      
+      // Show success feedback
+      const button = document.querySelector('[data-save-actions]') as HTMLButtonElement;
+      if (button) {
+        const originalText = button.textContent;
+        button.textContent = 'נשמר!';
+        button.style.backgroundColor = '#10b981';
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.style.backgroundColor = '';
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Failed to save agent actions:', error);
+      alert('שגיאה בשמירת הפעולות. אנא נסה שוב.');
+    } finally {
+      setSavingActions(false);
+    }
+  };
+
+  const getSentimentIcon = (score: number) => {
+    if (score > 0.3) return FaceSmileIcon;
+    if (score < -0.3) return FaceFrownIcon;
+    return ExclamationCircleIcon;
+  };
+
+  const getSentimentColor = (score: number) => {
+    if (score > 0.3) return 'text-green-500';
+    if (score < -0.3) return 'text-red-500';
+    return 'text-gray-500';
+  };
+
+  const getSentimentLabel = (score: number) => {
+    if (score > 0.3) return 'חיובי';
+    if (score < -0.3) return 'שלילי';
+    return 'נייטרלי';
+  };
+
+  if (!currentTicket) return null;
+
+  const StatusIcon = statusIcons[currentTicket.status];
+  const SentimentIcon = getSentimentIcon(currentTicket.sentiment_score);
+  const currentStatusOption = statusOptions.find(option => option.value === currentTicket.status);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-gray-500 bg-opacity-75"
+              onClick={onClose}
+            />
+            
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-6xl bg-white rounded-xl shadow-xl max-h-[95vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+                <div className="flex items-center space-x-4 space-x-reverse">
+                  <div className="p-3 bg-blue-100 rounded-lg">
+                    <TicketIcon className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">{currentTicket.title}</h2>
+                    <div className="flex items-center space-x-4 space-x-reverse mt-1">
+                      <span className="text-sm text-gray-500">
+                        #{currentTicket.ticket_number || currentTicket.id.slice(0, 8)}
+                      </span>
+                      
+                      {/* Status Dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                          className={clsx(
+                            'inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-colors hover:opacity-80',
+                            statusColors[currentTicket.status]
+                          )}
+                        >
+                          <StatusIcon className="h-3 w-3 ml-1" />
+                          {statusLabels[currentTicket.status]}
+                          <ChevronDownIcon className="h-3 w-3 mr-1" />
+                        </button>
+                        
+                        {statusDropdownOpen && (
+                          <div className="absolute top-full left-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                            {statusOptions.map((option) => {
+                              const OptionIcon = option.icon;
+                              return (
+                                <button
+                                  key={option.value}
+                                  onClick={() => handleStatusChange(option.value)}
+                                  className={clsx(
+                                    'w-full flex items-center px-3 py-2 text-sm hover:bg-gray-50 transition-colors',
+                                    currentTicket.status === option.value ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                                  )}
+                                >
+                                  <OptionIcon className={clsx('h-4 w-4 ml-2', option.color)} />
+                                  {option.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <span className={clsx('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', priorityColors[currentTicket.priority])}>
+                        {priorityLabels[currentTicket.priority]}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={onClose}
+                  className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="flex flex-1 min-h-0">
+                {/* Main Content */}
+                <div className="flex-1 flex flex-col">
+                  {/* Customer Info & Description */}
+                  <div className="p-4 border-b border-gray-200 flex-shrink-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                      <div className="flex items-center space-x-3 space-x-reverse">
+                        <UserIcon className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{currentTicket.customer_name}</p>
+                          <p className="text-sm text-gray-500">{currentTicket.customer_email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3 space-x-reverse">
+                        <ClockIcon className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">נוצר</p>
+                          <p className="text-sm text-gray-500">{new Date(currentTicket.created_at).toLocaleString('he-IL')}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-900 mb-2">תיאור הבעיה</h3>
+                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{currentTicket.description}</p>
+                    </div>
+
+                    {/* Tags */}
+                    {currentTicket.tags && currentTicket.tags.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-gray-900 mb-2">תגיות</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {currentTicket.tags.map((tag, index) => (
+                            <span
+                              key={index}
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                            >
+                              <TagIcon className="h-3 w-3 ml-1" />
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Agent Actions */}
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2">פעולות שבוצעו על ידי הנציג</h4>
+                      <div className="space-y-2">
+                        <textarea
+                          value={agentActions}
+                          onChange={(e) => setAgentActions(e.target.value)}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm"
+                          placeholder="תעד כאן את הפעולות שביצעת לפתרון הבעיה..."
+                        />
+                        <button
+                          onClick={handleSaveAgentActions}
+                          disabled={savingActions}
+                          data-save-actions
+                          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-all duration-200"
+                        >
+                          {savingActions ? 'שומר...' : 'שמור פעולות'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                 {/* Auto Solution */}
+                 <div className="flex-shrink-0">
+                   {(autoSolution || solutionLoading) && (
+                     <div className="p-4 bg-white border-b border-gray-200">
+                     <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                       <SparklesIcon className="h-4 w-4 ml-1 text-purple-600" />
+                       פתרון אוטומטי ממאגר הידע
+                     </h4>
+                     {solutionLoading ? (
+                       <div className="flex items-center space-x-2 space-x-reverse">
+                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                         <span className="text-sm text-gray-600">מחפש פתרון במאגר הידע...</span>
+                       </div>
+                     ) : autoSolution ? (
+                       <div>
+                          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-3">
+                            <div 
+                              className="text-sm text-purple-800 prose prose-sm max-w-none"
+                              dangerouslySetInnerHTML={{ __html: autoSolution }}
+                            />
+                         </div>
+                          <div className="flex space-x-2 space-x-reverse">
+                            <button
+                              onClick={() => handleUseSuggestedReply(autoSolution.replace(/<[^>]*>/g, ''))}
+                              className="flex-1 text-center p-2 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                            >
+                              השתמש בפתרון זה
+                            </button>
+                            <button
+                              onClick={() => {
+                                const plainText = autoSolution.replace(/<[^>]*>/g, '');
+                                navigator.clipboard.writeText(plainText);
+                              }}
+                              className="px-3 py-2 text-sm text-purple-600 border border-purple-600 rounded hover:bg-purple-50 transition-colors"
+                            >
+                              העתק
+                            </button>
+                             <button
+                               onClick={regenerateAutoSolution}
+                               disabled={regeneratingSolution}
+                               className="px-3 py-2 text-xs text-purple-600 border border-purple-600 rounded hover:bg-purple-50 transition-colors disabled:opacity-50"
+                             >
+                               {regeneratingSolution ? 'מייצר מחדש...' : 'ייצר מחדש'}
+                             </button>
+                          </div>
+                       </div>
+                     ) : null}
+                     </div>
+                   )}
+                 </div>
+
+                  {/* Conversation */}
+                  <div className="flex-1 overflow-y-auto p-4 min-h-0">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                      <ChatBubbleLeftRightIcon className="h-5 w-5 ml-2" />
+                      שיחה
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      {currentTicket.conversation.map((message) => (
+                        <div
+                          key={message.id}
+                          className={clsx(
+                            'flex',
+                            message.sender === 'customer' ? 'justify-start' : 'justify-end'
+                          )}
+                        >
+                          <div
+                            className={clsx(
+                              'max-w-xs lg:max-w-md px-4 py-2 rounded-lg',
+                              message.sender === 'customer'
+                                ? 'bg-gray-100 text-gray-900'
+                                : 'bg-blue-600 text-white'
+                            )}
+                          >
+                            <p className="text-sm">{message.content}</p>
+                            <p className={clsx(
+                              'text-xs mt-1',
+                              message.sender === 'customer' ? 'text-gray-500' : 'text-blue-100'
+                            )}>
+                              {message.sender_name} • {new Date(message.created_at).toLocaleTimeString('he-IL')}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Message Input */}
+                    <div className="mt-4 border-t border-gray-200 pt-4 sticky bottom-0 bg-white">
+                      <div className="flex space-x-2 space-x-reverse">
+                        <input
+                          type="text"
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          placeholder="כתוב תגובה..."
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                          disabled={loading}
+                        />
+                        <button
+                          onClick={handleSendMessage}
+                          disabled={loading || !newMessage.trim()}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                        >
+                          {loading ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          ) : (
+                            <PaperAirplaneIcon className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Analysis Sidebar */}
+                <div className="w-80 border-l border-gray-200 bg-gray-50 overflow-y-auto flex-shrink-0">
+                  <div className="p-4">
+                    <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                      <SparklesIcon className="h-5 w-5 ml-2 text-purple-600" />
+                      ניתוח בינה מלאכותית
+                    </h3>
+
+                    {/* AI Summary */}
+                    <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                        <DocumentTextIcon className="h-4 w-4 ml-1" />
+                        סיכום
+                      </h4>
+                      <p className="text-sm text-gray-700">
+                        {currentTicket.ai_summary || 'הלקוח פנה בנושא ' + categoryLabels[currentTicket.category] + ' ברמת עדיפות ' + priorityLabels[currentTicket.priority] + '. הכרטיס נמצא כעת בסטטוס ' + statusLabels[currentTicket.status] + '.'}
+                      </p>
+                    </div>
+
+                    {/* Sentiment Analysis */}
+                    <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
+                      <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                        <SentimentIcon className={clsx('h-4 w-4 ml-1', getSentimentColor(currentTicket.sentiment_score))} />
+                        ניתוח סנטימנט
+                      </h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">רמה:</span>
+                          <span className={clsx('text-sm font-medium', getSentimentColor(currentTicket.sentiment_score))}>
+                            {getSentimentLabel(currentTicket.sentiment_score)}
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={clsx(
+                              'h-2 rounded-full transition-all',
+                              currentTicket.sentiment_score > 0 ? 'bg-green-500' : 'bg-red-500'
+                            )}
+                            style={{ width: `${Math.abs(currentTicket.sentiment_score) * 100}%` }}
+                          />
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          ציון: {currentTicket.sentiment_score.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Risk Assessment */}
+                    <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
+                      <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                        <ExclamationTriangleIcon className={clsx(
+                          'h-4 w-4 ml-1',
+                          currentTicket.risk_level === 'high' ? 'text-red-500' :
+                          currentTicket.risk_level === 'medium' ? 'text-orange-500' : 'text-green-500'
+                        )} />
+                        הערכת סיכונים
+                      </h4>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">רמת סיכון:</span>
+                        <span className={clsx(
+                          'text-sm font-medium px-2 py-1 rounded-full',
+                          currentTicket.risk_level === 'high' ? 'bg-red-100 text-red-800' :
+                          currentTicket.risk_level === 'medium' ? 'bg-orange-100 text-orange-800' :
+                          'bg-green-100 text-green-800'
+                        )}>
+                          {riskLabels[currentTicket.risk_level]}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Category & Priority */}
+                    <div className="mb-6 p-4 bg-white rounded-lg border border-gray-200">
+                      <h4 className="text-sm font-medium text-gray-900 mb-3">סיווג</h4>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">קטגוריה:</span>
+                          <span className="text-sm font-medium">{categoryLabels[currentTicket.category]}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">עדיפות:</span>
+                          <span className={clsx('text-sm font-medium px-2 py-1 rounded-full', priorityColors[currentTicket.priority])}>
+                            {priorityLabels[currentTicket.priority]}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Suggested Replies */}
+                    {suggestedReplies.length > 0 && (
+                      <div className="p-4 bg-white rounded-lg border border-gray-200">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                          <ChatBubbleLeftRightIcon className="h-4 w-4 ml-1 text-blue-600" />
+                          תגובות מוצעות
+                        </h4>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {suggestedReplies.map((reply, index) => (
+                            <button
+                              key={index}
+                              onClick={() => handleUseSuggestedReply(reply)}
+                              className="w-full text-right p-2 text-xs bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
+                            >
+                              {reply.length > 80 ? reply.substring(0, 80) + '...' : reply}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}

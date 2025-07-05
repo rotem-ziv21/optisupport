@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: optisupport-backend
+    env: node
+    rootDir: backend
+    buildCommand: "npm install"
+    startCommand: "npm start"
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+  - type: web
+    name: optisupport-frontend
+    env: node
+    rootDir: .
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm start"
+    envVars:
+      - key: NODE_VERSION
+        value: 18

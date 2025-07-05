@@ -139,7 +139,7 @@ class KnowledgeBaseService {
       // Search for similar chunks using vector similarity
       const { data: chunks, error } = await supabase.rpc('search_knowledge_chunks', {
         query_embedding: queryEmbedding,
-        match_threshold: 0.7,
+        match_threshold: 0.9,
         match_count: limit
       });
 

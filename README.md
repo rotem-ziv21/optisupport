@@ -18,7 +18,7 @@
 - **ממשק קדמי**: React 18, TypeScript, Tailwind CSS
 - **שרת אחורי**: Supabase (PostgreSQL)
 - **אימות**: Supabase Auth
-- **בינה מלאכותית**: OpenAI GPT-3.5 Turbo
+- **בינה מלאכותית**: OpenAI GPT-4o
 - **אנימציות**: Framer Motion
 - **אייקונים**: Heroicons
 - **ניתוב**: React Router

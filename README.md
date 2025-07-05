@@ -161,6 +161,14 @@ npm run lint
 npm run build
 ```
 
+## פריסה ל-Render
+
+קובץ `render.yaml` שבמאגר מגדיר שני שירותים ל-Render:
+1. **optisupport-backend** – שירות web שמריץ את שרת Node מתוך התיקייה `backend`.
+2. **optisupport-frontend** – שירות web המבצע build לאפליקציית React ומריץ את `server.js` כדי להגיש את התיקייה `dist`.
+
+ייבוא המאגר כ-Blueprint ב-Render ייצור את שני השירותים באופן אוטומטי. יש להזין את משתני הסביבה הרלוונטיים בממשק Render בעת הפריסה.
+
 ## תרומה
 
 1. עשה fork למאגר

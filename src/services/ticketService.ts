@@ -130,15 +130,12 @@ class TicketService {
     priority?: string;
     category?: string;
   }): Promise<Ticket> {
-    // Generate random ticket number
-    const ticketNumber = Math.floor(1000 + Math.random() * 9000).toString();
-
     // Always try to create in Supabase first if configured
     if (isSupabaseConfigured && supabase) {
       try {
         // Use AI to classify the ticket if OpenAI is configured
         let classification = { category: 'general', priority: 'medium', confidence: 0.5 };
-        let sentiment = { score: 0, label: 'neutral' as const, confidence: 0.5 };
+        let sentiment = { score: 0, label: 'neutral' as 'neutral' | 'negative' | 'positive', confidence: 0.5 };
 
         try {
           classification = await aiService.classifyTicket(ticketData.description);
@@ -150,7 +147,6 @@ class TicketService {
         const { data, error } = await supabase
           .from('tickets')
           .insert({
-            ticket_number: ticketNumber,
             title: ticketData.title,
             description: ticketData.description,
             customer_email: ticketData.customer_email,
@@ -189,14 +185,13 @@ class TicketService {
     // Fallback to mock ticket creation
     const newTicket: Ticket = {
       id: `mock-${Date.now()}`,
-      ticket_number: ticketNumber,
       title: ticketData.title,
       description: ticketData.description,
       customer_email: ticketData.customer_email,
       customer_name: ticketData.customer_name,
-      priority: ticketData.priority || 'medium',
-      category: ticketData.category || 'general',
       status: 'open',
+      priority: ticketData.priority || 'medium',
+      category: (ticketData.category as 'general' | 'technical' | 'billing' | 'feature_request') || 'general',
       assigned_to: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

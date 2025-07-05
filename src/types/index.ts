@@ -1,3 +1,10 @@
+export interface AgentAction {
+  id: string;
+  content: string;
+  timestamp: string;
+  agent_name?: string;
+}
+
 export interface Ticket {
   id: string;
   ticket_number?: string;
@@ -16,7 +23,7 @@ export interface Ticket {
   risk_level: 'low' | 'medium' | 'high';
   ai_summary?: string;
   suggested_replies?: string[];
-  agent_actions?: string;
+  agent_actions?: string | AgentAction[]; // Support both string (legacy) and array of actions
   conversation: Message[];
 }
 

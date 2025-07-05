@@ -17,10 +17,11 @@ import {
   FaceFrownIcon,
   ExclamationCircleIcon,
   PaperAirplaneIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
-import { Ticket, Message } from '../types';
+import { Ticket, Message, AgentAction } from '../types';
 import { ticketService } from '../services/ticketService';
 import { knowledgeBaseService } from '../services/knowledgeBaseService';
 
@@ -96,7 +97,8 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
   const [solutionLoading, setSolutionLoading] = useState(false);
   const [solutionGenerated, setSolutionGenerated] = useState(false);
   const [regeneratingSolution, setRegeneratingSolution] = useState(false);
-  const [agentActions, setAgentActions] = useState('');
+  const [newAgentAction, setNewAgentAction] = useState('');
+  const [agentActions, setAgentActions] = useState<AgentAction[]>([]);
   const [savingActions, setSavingActions] = useState(false);
 
   useEffect(() => {
@@ -109,8 +111,32 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
 
   useEffect(() => {
     setCurrentTicket(ticket);
-    setAgentActions(ticket?.agent_actions || '');
+    
+    // Handle agent actions - support both string (legacy) and array formats
     if (ticket && isOpen) {
+      if (typeof ticket.agent_actions === 'string') {
+        // Legacy format - convert to array if not empty
+        if (ticket.agent_actions) {
+          setAgentActions([{
+            id: 'legacy-1',
+            content: ticket.agent_actions,
+            timestamp: ticket.updated_at
+          }]);
+        } else {
+          setAgentActions([]);
+        }
+      } else if (Array.isArray(ticket.agent_actions)) {
+        // New format - already an array
+        setAgentActions(ticket.agent_actions);
+      } else {
+        // No actions yet
+        setAgentActions([]);
+      }
+      
+      // Reset new action input
+      setNewAgentAction('');
+      
+      // Load other data
       loadSuggestedReplies();
       if (!solutionGenerated) {
         loadAutoSolution();
@@ -224,24 +250,39 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
     setNewMessage(reply);
   };
 
-  const handleSaveAgentActions = async () => {
-    if (!currentTicket) return;
+  const handleAddAgentAction = async () => {
+    if (!currentTicket || !newAgentAction.trim()) return;
 
     setSavingActions(true);
     try {
-      const updatedTicket = await ticketService.updateTicket(currentTicket.id, {
-        agent_actions: agentActions,
+      // Create new action
+      const newAction: AgentAction = {
+        id: `action-${Date.now()}`,
+        content: newAgentAction.trim(),
+        timestamp: new Date().toISOString(),
+        agent_name: 'נציג' // Could be replaced with actual agent name
+      };
+      
+      // Add to existing actions
+      const updatedActions = [...agentActions, newAction];
+      
+      // Update ticket
+      await ticketService.updateTicket(currentTicket.id, {
+        agent_actions: updatedActions,
         updated_at: new Date().toISOString()
       });
       
-      setCurrentTicket(prev => prev ? { ...prev, agent_actions: agentActions } : prev);
+      // Update local state
+      setAgentActions(updatedActions);
+      setCurrentTicket(prev => prev ? { ...prev, agent_actions: updatedActions } : prev);
+      setNewAgentAction(''); // Clear input field
       onTicketUpdated?.();
       
       // Show success feedback
-      const button = document.querySelector('[data-save-actions]') as HTMLButtonElement;
+      const button = document.querySelector('[data-add-action]') as HTMLButtonElement;
       if (button) {
         const originalText = button.textContent;
-        button.textContent = 'נשמר!';
+        button.textContent = 'נוסף!';
         button.style.backgroundColor = '#10b981';
         setTimeout(() => {
           button.textContent = originalText;
@@ -249,11 +290,24 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
         }, 2000);
       }
     } catch (error) {
-      console.error('Failed to save agent actions:', error);
-      alert('שגיאה בשמירת הפעולות. אנא נסה שוב.');
+      console.error('Failed to save agent action:', error);
+      alert('שגיאה בשמירת הפעולה. אנא נסה שוב.');
     } finally {
       setSavingActions(false);
     }
+  };
+
+  // Legacy function removed as it's no longer used
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('he-IL', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
   };
 
   const getSentimentIcon = (score: number) => {
@@ -410,21 +464,39 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                     {/* Agent Actions */}
                     <div className="mt-4">
                       <h4 className="text-sm font-medium text-gray-900 mb-2">פעולות שבוצעו על ידי הנציג</h4>
+                      
+                      {/* Action History */}
+                      {agentActions.length > 0 && (
+                        <div className="mb-3 max-h-40 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-200">
+                          {agentActions.map((action) => (
+                            <div key={action.id} className="p-2 bg-gray-50">
+                              <div className="text-xs text-gray-500 mb-1 flex justify-between">
+                                <span>{action.agent_name || 'נציג'}</span>
+                                <span>{formatDate(action.timestamp)}</span>
+                              </div>
+                              <p className="text-sm">{action.content}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Add New Action */}
                       <div className="space-y-2">
                         <textarea
-                          value={agentActions}
-                          onChange={(e) => setAgentActions(e.target.value)}
+                          value={newAgentAction}
+                          onChange={(e) => setNewAgentAction(e.target.value)}
                           rows={3}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm"
-                          placeholder="תעד כאן את הפעולות שביצעת לפתרון הבעיה..."
+                          placeholder="הוסף פעולה חדשה שביצעת לפתרון הבעיה..."
                         />
                         <button
-                          onClick={handleSaveAgentActions}
-                          disabled={savingActions}
-                          data-save-actions
-                          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-all duration-200"
+                          onClick={handleAddAgentAction}
+                          disabled={savingActions || !newAgentAction.trim()}
+                          data-add-action
+                          className="flex items-center px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-all duration-200"
                         >
-                          {savingActions ? 'שומר...' : 'שמור פעולות'}
+                          <PlusIcon className="h-4 w-4 ml-1" />
+                          {savingActions ? 'מוסיף...' : 'הוסף פעולה'}
                         </button>
                       </div>
                     </div>

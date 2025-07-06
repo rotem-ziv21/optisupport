@@ -180,13 +180,13 @@ class KnowledgeBaseService {
     try {
       // Check if solution already exists and we're not forcing regeneration
       if (!forceRegenerate && isSupabaseConfigured && supabase) {
-        const { data: existingSolution } = await supabase
+        const { data: existingSolution, error: fetchError } = await supabase
           .from('auto_solutions')
           .select('*')
           .eq('ticket_id', ticketId)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (existingSolution) {
           return {
@@ -247,8 +247,7 @@ class KnowledgeBaseService {
             solution_content: solution,
             knowledge_sources: JSON.stringify(searchResults)
           })
-          .select()
-          .single();
+          .select();
 
         if (!error && data) {
           autoSolution.id = data.id;

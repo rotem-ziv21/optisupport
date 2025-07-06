@@ -89,7 +89,7 @@ class AIService {
 
     try {
       const chatResponse = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4.1-2025-04-14',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 1000,
         temperature: 0.3,
@@ -238,9 +238,12 @@ class AIService {
   }
 
   private parseSuggestedReplies(response: string): string[] {
+    console.log('Raw suggested replies response:', response);
+    
     try {
       // נסה לנקות את התשובה אם היא מגיעה בפורמט Markdown
       let cleanedResponse = response.trim();
+      let result: string[] = [];
       
       // אם התשובה מתחילה ב-```json ומסתיימת ב-```, הסר את התגים האלה
       const jsonCodeBlockRegex = /```(?:json)?\n([\s\S]+?)\n```/;
@@ -251,26 +254,52 @@ class AIService {
       }
       
       // נסה לפרסר את ה-JSON
-      return JSON.parse(cleanedResponse);
-    } catch (error) {
-      console.error('Failed to parse suggested replies:', error);
-      // אם הפרסור נכשל, נסה לחלץ תשובות בפורמט פשוט יותר
       try {
-        // בדוק אם התשובה היא רשימה פשוטה של מחרוזות
-        const lines = response.split('\n')
-          .map(line => line.trim())
-          .filter(line => line.length > 0 && !line.startsWith('```'));
-          
-        if (lines.length > 0) {
-          return lines.map(line => {
-            // הסר תבליטים או מספרים בתחילת השורה
-            return line.replace(/^[-*]\s+|^\d+\.\s+/, '').trim();
-          });
+        const parsed = JSON.parse(cleanedResponse);
+        
+        // בדוק אם התוצאה היא מערך
+        if (Array.isArray(parsed)) {
+          result = parsed.filter(item => typeof item === 'string');
+        } 
+        // בדוק אם התוצאה היא אובייקט עם שדה suggested_replies
+        else if (parsed && typeof parsed === 'object' && 'suggested_replies' in parsed) {
+          const replies = parsed.suggested_replies;
+          if (Array.isArray(replies)) {
+            result = replies.filter(item => typeof item === 'string');
+          }
         }
-      } catch (e) {
-        console.error('Failed to extract replies from text:', e);
+        
+        if (result.length > 0) {
+          console.log('Successfully parsed JSON replies:', result);
+          return result;
+        }
+      } catch (jsonError) {
+        console.warn('Failed to parse as JSON:', jsonError);
+        // המשך לניסיון הבא אם הפרסור נכשל
       }
       
+      // נסה לחלץ תשובות בפורמט פשוט יותר
+      const lines = response.split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0 && !line.startsWith('```'));
+        
+      if (lines.length > 0) {
+        result = lines.map(line => {
+          // הסר תבליטים או מספרים בתחילת השורה
+          return line.replace(/^[-*]\s+|^\d+\.\s+/, '').trim();
+        }).filter(line => line.length > 0);
+        
+        if (result.length > 0) {
+          console.log('Extracted replies from text:', result);
+          return result;
+        }
+      }
+      
+      // אם הגענו לכאן, לא הצלחנו לחלץ תשובות - החזר מערך ריק
+      console.warn('Could not extract any replies, returning empty array');
+      return [];
+    } catch (error) {
+      console.error('Critical error in parseSuggestedReplies:', error);
       return [];
     }
   }

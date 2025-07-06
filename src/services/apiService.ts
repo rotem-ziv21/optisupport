@@ -9,9 +9,12 @@ class ApiService {
   private token: string | null = null;
 
   constructor() {
+    // Get API URL from environment variables or use default for local development
+    const apiUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000/api';
+    
     // Create axios instance with base URL
     this.api = axios.create({
-      baseURL: 'http://localhost:5000/api', // Default to local development server
+      baseURL: apiUrl, // Use environment variable or default to local development server
       timeout: 10000,
       headers: {
         'Content-Type': 'application/json',

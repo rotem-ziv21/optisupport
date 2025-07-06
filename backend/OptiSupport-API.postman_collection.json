@@ -1,0 +1,388 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6",
+    "name": "OptiSupport API",
+    "description": "API collection for testing the OptiSupport backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "description": "Authentication endpoints",
+      "item": [
+        {
+          "name": "Login (Placeholder)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login to get JWT token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tickets",
+      "description": "Ticket management endpoints",
+      "item": [
+        {
+          "name": "Create Ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Website is down\",\n    \"description\": \"Our company website is not loading for any customers. This is urgent as we're losing sales.\",\n    \"customer_id\": \"123\",\n    \"category\": \"technical\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/tickets",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tickets"
+              ]
+            },
+            "description": "Create a new support ticket"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Tickets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tickets?status=open&priority=high&page=1&limit=10",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tickets"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "open",
+                  "description": "Filter by status (open, in_progress, pending, resolved, closed)"
+                },
+                {
+                  "key": "priority",
+                  "value": "high",
+                  "description": "Filter by priority (low, medium, high)"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number for pagination"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Number of items per page"
+                }
+              ]
+            },
+            "description": "Get all tickets with optional filtering"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ticket by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/tickets/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tickets",
+                "1"
+              ]
+            },
+            "description": "Get a specific ticket by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Ticket Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"in_progress\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/tickets/1/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tickets",
+                "1",
+                "status"
+              ]
+            },
+            "description": "Update the status of a ticket"
+          },
+          "response": []
+        },
+        {
+          "name": "Add Comment to Ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"content\": \"I've started working on this issue and will update you soon.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/tickets/1/comment",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "tickets",
+                "1",
+                "comment"
+              ]
+            },
+            "description": "Add a comment to a ticket"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Statistics",
+      "description": "Ticket statistics endpoints",
+      "item": [
+        {
+          "name": "Get General Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/stats",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "stats"
+              ]
+            },
+            "description": "Get general ticket statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Stats by Priority",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{jwt_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/stats/priority",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "stats",
+                "priority"
+              ]
+            },
+            "description": "Get ticket statistics by priority"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "description": "Webhook endpoints",
+      "item": [
+        {
+          "name": "Create Ticket via Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"title\": \"Automated Ticket Creation\",\n    \"description\": \"This ticket was created automatically via webhook integration.\",\n    \"customer_id\": \"123\",\n    \"category\": \"integration\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/webhooks/ticket/create",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "webhooks",
+                "ticket",
+                "create"
+              ]
+            },
+            "description": "Create a ticket via webhook"
+          },
+          "response": []
+        },
+        {
+          "name": "Close Ticket via Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-Key",
+                "value": "{{api_key}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"ticket_id\": \"1\",\n    \"resolution_note\": \"Issue resolved automatically by system.\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/webhooks/ticket/close",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "webhooks",
+                "ticket",
+                "close"
+              ]
+            },
+            "description": "Close a ticket via webhook"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "jwt_token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "your_api_key_here",
+      "type": "string"
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+export interface AgentAction {
+  id: string;
+  content: string;
+  timestamp: string;
+  agent_name?: string;
+}
+
+export interface Ticket {
+  id: string;
+  ticket_number?: string;
+  title: string;
+  description: string;
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  category: 'technical' | 'billing' | 'general' | 'feature_request';
+  customer_email: string;
+  customer_name: string;
+  assigned_to?: string;
+  created_at: string;
+  updated_at: string;
+  tags: string[];
+  sentiment_score: number;
+  risk_level: 'low' | 'medium' | 'high';
+  ai_summary?: string;
+  suggested_replies?: string[];
+  agent_actions?: string | AgentAction[]; // Support both string (legacy) and array of actions
+  conversation: Message[];
+}
+
+export interface Message {
+  id: string;
+  ticket_id: string;
+  content: string;
+  sender: 'customer' | 'agent';
+  sender_name: string;
+  created_at: string;
+  is_ai_suggested?: boolean;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'agent' | 'manager';
+  avatar_url?: string;
+  created_at: string;
+  is_active: boolean;
+}
+
+export interface AIAnalysis {
+  classification: {
+    category: string;
+    priority: string;
+    confidence: number;
+  };
+  sentiment: {
+    score: number;
+    label: 'positive' | 'neutral' | 'negative';
+    confidence: number;
+  };
+  risk_assessment: {
+    level: 'low' | 'medium' | 'high';
+    factors: string[];
+  };
+  summary: string;
+  suggested_tags: string[];
+  suggested_replies: string[];
+}
+
+export interface DashboardStats {
+  total_tickets: number;
+  open_tickets: number;
+  in_progress_tickets: number;
+  resolved_today: number;
+  avg_response_time: number;
+  satisfaction_score: number;
+  high_risk_tickets: number;
+  ai_accuracy: number;
+}
+
+export interface KnowledgeBaseItem {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  tags: string[];
+  priority: 'low' | 'medium' | 'high';
+  source_type: 'document' | 'faq' | 'manual' | 'url';
+  source_url?: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+  metadata: {
+    author?: string;
+    version?: string;
+    language?: string;
+    file_type?: string;
+  };
+}
+
+export interface KnowledgeChunk {
+  id: string;
+  kb_item_id: string;
+  content: string;
+  chunk_index: number;
+  embedding?: number[];
+  created_at: string;
+}
+
+export interface KnowledgeSearchResult {
+  chunk: KnowledgeChunk;
+  kb_item: KnowledgeBaseItem;
+  similarity_score: number;
+  relevance_explanation?: string;
+}
+
+export interface AutoSolution {
+  id: string;
+  ticket_id: string;
+  solution_type: 'automatic' | 'suggested' | 'escalated';
+  confidence_score: number;
+  solution_content: string;
+  knowledge_sources: KnowledgeSearchResult[];
+  created_at: string;
+  is_approved?: boolean;
+  feedback_score?: number;
+}

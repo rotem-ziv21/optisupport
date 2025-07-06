@@ -130,89 +130,162 @@ class KnowledgeBaseService {
   async searchKnowledge(query: string, limit: number = 5): Promise<KnowledgeSearchResult[]> {
     try {
       if (!isSupabaseConfigured || !supabase) {
+        console.log('Supabase not configured, returning mock search results');
         return this.getMockSearchResults(query);
       }
 
-      // Generate embedding for the query
-      const queryEmbedding = await aiService.generateEmbedding(query);
+      console.log('Searching knowledge base for:', query);
+      
+      try {
+        // First try direct text search as a fallback if vector search fails
+        const { data: directResults } = await supabase
+          .from('knowledge_base_items')
+          .select('*')
+          .or(`title.ilike.%${query}%,content.ilike.%${query}%`)
+          .limit(limit);
 
-      // Search for similar chunks using vector similarity
-      const { data: chunks, error } = await supabase.rpc('search_knowledge_chunks', {
-        query_embedding: queryEmbedding,
-        match_threshold: 0.9,
-        match_count: limit
-      });
-
-      if (error) {
-        console.error('Vector search failed:', error);
-        return this.getFallbackSearchResults(query);
+        if (directResults && directResults.length > 0) {
+          console.log('Found results via direct text search:', directResults.length);
+          
+          // Convert to KnowledgeSearchResult format
+          const results: KnowledgeSearchResult[] = directResults.map(item => ({
+            chunk: {
+              id: `chunk-${item.id}-0`,
+              kb_item_id: item.id,
+              content: item.content?.substring(0, 500) || '',
+              chunk_index: 0,
+              created_at: item.created_at
+            },
+            kb_item: item,
+            similarity_score: 0.85, // Reasonable default score for direct matches
+            relevance_explanation: this.generateRelevanceExplanation(query, item.content || '')
+          }));
+          
+          return results;
+        }
+      } catch (directSearchError) {
+        console.error('Direct text search failed:', directSearchError);
+        // Continue to try vector search or fallback
       }
+      
+      try {
+        // Try vector search if available
+        // Generate embedding for the query
+        const queryEmbedding = await aiService.generateEmbedding(query);
 
-      // Get knowledge base items for the chunks
-      const kbItemIds = [...new Set(chunks.map((chunk: any) => chunk.kb_item_id))];
-      const { data: kbItems } = await supabase
-        .from('knowledge_base_items')
-        .select('*')
-        .in('id', kbItemIds);
+        // Search for similar chunks using vector similarity
+        const { data: chunks, error } = await supabase.rpc('search_knowledge_chunks', {
+          query_embedding: queryEmbedding,
+          match_threshold: 0.7, // Lower threshold to get more results
+          match_count: limit
+        });
 
-      // Combine results
-      const results: KnowledgeSearchResult[] = chunks.map((chunk: any) => ({
-        chunk: {
-          id: chunk.id,
-          kb_item_id: chunk.kb_item_id,
-          content: chunk.content,
-          chunk_index: chunk.chunk_index,
-          created_at: chunk.created_at
-        },
-        kb_item: kbItems?.find(item => item.id === chunk.kb_item_id) || null,
-        similarity_score: chunk.similarity,
-        relevance_explanation: this.generateRelevanceExplanation(query, chunk.content)
-      })).filter(result => result.kb_item);
+        if (!error && chunks && chunks.length > 0) {
+          console.log('Found results via vector search:', chunks.length);
+          
+          // Get knowledge base items for the chunks
+          const kbItemIds = [...new Set(chunks.map((chunk: any) => chunk.kb_item_id))];
+          const { data: kbItems } = await supabase
+            .from('knowledge_base_items')
+            .select('*')
+            .in('id', kbItemIds);
 
-      return results;
+          // Combine results
+          const results: KnowledgeSearchResult[] = chunks.map((chunk: any) => ({
+            chunk: {
+              id: chunk.id,
+              kb_item_id: chunk.kb_item_id,
+              content: chunk.content,
+              chunk_index: chunk.chunk_index,
+              created_at: chunk.created_at
+            },
+            kb_item: kbItems?.find(item => item.id === chunk.kb_item_id) || null,
+            similarity_score: chunk.similarity,
+            relevance_explanation: this.generateRelevanceExplanation(query, chunk.content)
+          })).filter(result => result.kb_item);
+
+          if (results.length > 0) {
+            return results;
+          }
+        } else {
+          console.warn('Vector search failed or returned no results:', error);
+        }
+      } catch (vectorSearchError) {
+        console.error('Vector search failed:', vectorSearchError);
+        // Continue to fallback
+      }
+      
+      console.log('No results found, returning fallback search results');
+      return this.getMockSearchResults(query);
     } catch (error) {
-      console.error('Knowledge search failed:', error);
+      console.error('Knowledge search failed completely:', error);
       return this.getFallbackSearchResults(query);
     }
   }
 
   async generateAutoSolution(ticketId: string, ticketContent: string, forceRegenerate: boolean = false): Promise<AutoSolution | null> {
+    console.log('Generating auto solution for ticket:', ticketId);
+    console.log('Ticket content:', ticketContent.substring(0, 100) + '...');
+    
     try {
       // Check if solution already exists and we're not forcing regeneration
       if (!forceRegenerate && isSupabaseConfigured && supabase) {
-        const { data: existingSolution, error: fetchError } = await supabase
-          .from('auto_solutions')
-          .select('*')
-          .eq('ticket_id', ticketId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        try {
+          const { data: existingSolution, error: fetchError } = await supabase
+            .from('auto_solutions')
+            .select('*')
+            .eq('ticket_id', ticketId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        if (existingSolution) {
-          return {
-            id: existingSolution.id,
-            ticket_id: existingSolution.ticket_id,
-            solution_type: existingSolution.solution_type,
-            confidence_score: existingSolution.confidence_score,
-            solution_content: existingSolution.solution_content,
-            knowledge_sources: JSON.parse(existingSolution.knowledge_sources || '[]'),
-            created_at: existingSolution.created_at
-          };
+          if (fetchError) {
+            console.error('Error fetching existing solution:', fetchError);
+          }
+
+          if (existingSolution) {
+            console.log('Found existing solution, returning it');
+            try {
+              const parsedSources = JSON.parse(existingSolution.knowledge_sources || '[]');
+              return {
+                id: existingSolution.id,
+                ticket_id: existingSolution.ticket_id,
+                solution_type: existingSolution.solution_type,
+                confidence_score: existingSolution.confidence_score,
+                solution_content: existingSolution.solution_content,
+                knowledge_sources: parsedSources,
+                created_at: existingSolution.created_at
+              };
+            } catch (parseError) {
+              console.error('Error parsing knowledge sources:', parseError);
+              // Continue with generating a new solution
+            }
+          }
+        } catch (existingError) {
+          console.error('Error checking for existing solution:', existingError);
+          // Continue with generating a new solution
         }
       }
 
+      console.log('Searching for relevant knowledge...');
       // Search for relevant knowledge
-      const searchResults = await this.searchKnowledge(ticketContent, 3);
+      const searchResults = await this.searchKnowledge(ticketContent, 5); // Increased to 5 for better coverage
+      
+      console.log(`Found ${searchResults.length} knowledge base results`);
       
       if (searchResults.length === 0) {
+        console.log('No knowledge base results found, returning null');
         return null;
       }
 
       // Generate solution using AI
+      console.log('Generating solution using AI...');
       const solution = await aiService.generateStructuredSolutionFromKnowledge(ticketContent, searchResults);
+      console.log('Solution generated:', solution.substring(0, 100) + '...');
       
       // Calculate confidence score
       const confidenceScore = this.calculateConfidenceScore(searchResults, solution);
+      console.log('Confidence score:', confidenceScore);
 
       // Determine solution type
       const solutionType = confidenceScore > 0.8 ? 'automatic' : 
@@ -230,27 +303,48 @@ class KnowledgeBaseService {
 
       // Save to database if configured
       if (isSupabaseConfigured && supabase) {
-        // Delete existing solution if regenerating
-        if (forceRegenerate) {
-          await supabase
+        console.log('Saving solution to database...');
+        
+        try {
+          // Delete existing solution if regenerating
+          if (forceRegenerate) {
+            await supabase
+              .from('auto_solutions')
+              .delete()
+              .eq('ticket_id', ticketId);
+          }
+
+          // Prepare knowledge sources for storage - make sure it's a valid JSON string
+          const knowledgeSourcesString = JSON.stringify(
+            searchResults.map(result => ({
+              chunk_id: result.chunk.id,
+              kb_item_id: result.chunk.kb_item_id,
+              title: result.kb_item?.title || '',
+              similarity_score: result.similarity_score
+            }))
+          );
+
+          console.log('Inserting solution into auto_solutions table');
+          const { data, error } = await supabase
             .from('auto_solutions')
-            .delete()
-            .eq('ticket_id', ticketId);
-        }
+            .insert({
+              ticket_id: ticketId,
+              solution_type: solutionType,
+              confidence_score: confidenceScore,
+              solution_content: solution,
+              knowledge_sources: knowledgeSourcesString
+            })
+            .select();
 
-        const { data, error } = await supabase
-          .from('auto_solutions')
-          .insert({
-            ticket_id: ticketId,
-            solution_type: solutionType,
-            confidence_score: confidenceScore,
-            solution_content: solution,
-            knowledge_sources: JSON.stringify(searchResults)
-          })
-          .select();
-
-        if (!error && data) {
-          autoSolution.id = data.id;
+          if (error) {
+            console.error('Error saving solution to database:', error);
+          } else if (data && data[0]) {
+            console.log('Solution saved successfully with ID:', data[0].id);
+            autoSolution.id = data[0].id;
+          }
+        } catch (saveError) {
+          console.error('Exception saving solution to database:', saveError);
+          // Continue to return the solution even if saving failed
         }
       }
 

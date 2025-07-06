@@ -330,7 +330,7 @@ class AIService {
       return { level: 'low', factors: [] };
     }
   }
-  private getFallbackStructuredSolution(ticketContent: string): string {
+  private getFallbackStructuredSolution(_ticketContent: string): string {
     return `
 פתרון מוצע:
 מצטערים, לא הצלחנו ליצור פתרון אוטומטי מפורט מהמידע הקיים במאגר הידע.
@@ -345,12 +345,12 @@ class AIService {
 `;
   }
 
-  private getFallbackAnalysis(ticket: Ticket): AIAnalysis {
+  private getFallbackAnalysis(/* unused */ _ticket: Ticket): AIAnalysis {
     return {
       classification: { category: 'general', priority: 'medium', confidence: 0.5 },
       sentiment: { score: 0, label: 'neutral', confidence: 0.5 },
       risk_assessment: { level: 'low', factors: [] },
-      summary: `כרטיס תמיכה: ${ticket.title}`,
+      summary: `כרטיס תמיכה: כותרת כללית`,
       suggested_tags: ['תמיכה'],
       suggested_replies: [
         'תודה על פנייתך. אנו בוחנים את הבקשה שלך ונחזור אליך בהקדם האפשרי.',

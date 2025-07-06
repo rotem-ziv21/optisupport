@@ -1,5 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Ticket, Message, AIAnalysis } from '../types';
+import { Ticket, Message } from '../types';
 import { aiService } from './aiService';
 import { mockTickets } from '../utils/mockData';
 import { knowledgeBaseService } from './knowledgeBaseService';
@@ -169,9 +169,6 @@ class TicketService {
         // Perform full AI analysis in the background
         this.performAIAnalysis(data.id);
 
-        // Try to generate auto solution from knowledge base
-        this.generateAutoSolution(data.id, `${ticketData.title}\n${ticketData.description}`);
-
         return {
           ...data,
           conversation: []
@@ -191,14 +188,14 @@ class TicketService {
       customer_name: ticketData.customer_name,
       status: 'open',
       priority: ticketData.priority || 'medium',
-      category: (ticketData.category as 'general' | 'technical' | 'billing' | 'feature_request') || 'general',
-      assigned_to: null,
+      category: ticketData.category as any || 'general',
+      assigned_to: null as any,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       tags: ['mock-data'],
       sentiment_score: 0,
-      risk_level: 'low',
-      ai_summary: null,
+      risk_level: 'low' as any,
+      ai_summary: null as any,
       suggested_replies: [],
       agent_actions: '',
       conversation: []
@@ -370,13 +367,20 @@ class TicketService {
 
   private async performAIAnalysis(ticketId: string): Promise<void> {
     if (!isSupabaseConfigured || !supabase) {
+      console.log('Supabase not configured, skipping AI analysis');
       return;
     }
 
     try {
+      console.log('Starting AI analysis for ticket:', ticketId);
       const ticket = await this.getTicket(ticketId);
-      if (!ticket) return;
+      if (!ticket) {
+        console.log('Ticket not found, skipping AI analysis');
+        return;
+      }
 
+      // Perform AI analysis
+      console.log('Getting AI analysis for ticket');
       const analysis = await aiService.analyzeTicket(ticket);
       const summary = await aiService.summarizeTicket(ticket, ticket.conversation);
       const riskAssessment = await aiService.assessRisk(ticket, ticket.conversation);
@@ -389,6 +393,7 @@ class TicketService {
       console.log('Updating ticket with AI analysis, suggested_replies:', JSON.stringify(validReplies));
       
       try {
+        // Update ticket with AI analysis results
         await supabase
           .from('tickets')
           .update({
@@ -401,61 +406,75 @@ class TicketService {
             suggested_replies: validReplies
           })
           .eq('id', ticketId);
+        
+        // Generate auto-solution from knowledge base
+        console.log('Generating auto-solution from knowledge base for ticket:', ticketId);
+        const ticketContent = `${ticket.title}\n${ticket.description}\n${ticket.conversation || ''}`;
+        const autoSolution = await knowledgeBaseService.generateAutoSolution(ticketId, ticketContent);
+        
+        if (autoSolution) {
+          console.log('Auto-solution generated, updating ticket with solution:', autoSolution.id);
+          
+          // Update ticket with auto-solution
+          await supabase
+            .from('tickets')
+            .update({
+              auto_solution_id: autoSolution.id,
+              solution_confidence: autoSolution.confidence_score,
+              solution_type: autoSolution.solution_type
+            })
+            .eq('id', ticketId);
+            
+          console.log('Ticket updated with auto-solution');
+          
+          // Add the auto-generated solution as a suggested reply if confidence is high
+          if (autoSolution.confidence_score > 0.7) {
+            // Strip HTML tags and clean the solution content
+            const cleanSolutionContent = autoSolution.solution_content
+              .replace(/<[^>]*>/g, '') // Remove HTML tags
+              .replace(/\s+/g, ' ') // Normalize whitespace
+              .trim();
+              
+            // Get current suggested replies
+            const currentTicket = await this.getTicket(ticketId);
+            if (currentTicket) {
+              // Make sure current suggested_replies is an array
+              const currentReplies = Array.isArray(currentTicket.suggested_replies) 
+                ? currentTicket.suggested_replies 
+                : [];
+                
+              // Create updated replies array with the new solution at the beginning
+              const updatedReplies = [
+                cleanSolutionContent,
+                ...currentReplies
+              ].slice(0, 5); // Keep only top 5 suggestions
+
+              // Ensure all replies are clean strings
+              const sanitizedReplies = updatedReplies
+                .filter(reply => typeof reply === 'string' && reply.trim().length > 0)
+                .map(reply => reply.replace(/[\x00-\x1F\x7F]/g, '').trim()); // Remove control characters
+              
+              // Make sure we're sending a valid JSON array
+              console.log('Updating ticket with sanitized replies from auto-solution:', JSON.stringify(sanitizedReplies));
+              
+              try {
+                await supabase
+                  .from('tickets')
+                  .update({ suggested_replies: sanitizedReplies })
+                  .eq('id', ticketId);
+              } catch (updateError) {
+                console.error('Failed to update suggested_replies with auto-solution:', updateError);
+              }
+            }
+          }
+        } else {
+          console.log('No auto-solution generated for ticket');
+        }
       } catch (updateError) {
-        console.error('Failed to update ticket with AI analysis:', updateError);
+        console.error('Failed to update ticket with AI analysis or auto-solution:', updateError);
       }
     } catch (error) {
       console.error('Failed to perform AI analysis:', error);
-    }
-  }
-
-  private async generateAutoSolution(ticketId: string, ticketContent: string): Promise<void> {
-    try {
-      const autoSolution = await knowledgeBaseService.generateAutoSolution(ticketId, ticketContent);
-      
-      if (autoSolution && autoSolution.confidence_score > 0.7) {
-        // Strip HTML tags and clean the solution content
-        const cleanSolutionContent = autoSolution.solution_content
-          .replace(/<[^>]*>/g, '') // Remove HTML tags
-          .replace(/\s+/g, ' ') // Normalize whitespace
-          .trim();
-        
-        // Add the auto-generated solution as a suggested reply
-        const currentTicket = await this.getTicket(ticketId);
-        if (currentTicket) {
-          // Make sure current suggested_replies is an array
-          const currentReplies = Array.isArray(currentTicket.suggested_replies) 
-            ? currentTicket.suggested_replies 
-            : [];
-            
-          // Create updated replies array with the new solution at the beginning
-          const updatedReplies = [
-            cleanSolutionContent,
-            ...currentReplies
-          ].slice(0, 5); // Keep only top 5 suggestions
-
-          if (isSupabaseConfigured && supabase) {
-            // Ensure all replies are clean strings
-            const sanitizedReplies = updatedReplies
-              .filter(reply => typeof reply === 'string' && reply.trim().length > 0)
-              .map(reply => reply.replace(/[\x00-\x1F\x7F]/g, '').trim()); // Remove control characters
-            
-            // Make sure we're sending a valid JSON array
-            console.log('Updating ticket with sanitized replies:', JSON.stringify(sanitizedReplies));
-            
-            try {
-              await supabase
-                .from('tickets')
-                .update({ suggested_replies: sanitizedReplies })
-                .eq('id', ticketId);
-            } catch (updateError) {
-              console.error('Failed to update suggested_replies:', updateError);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Failed to generate auto solution:', error);
     }
   }
 }

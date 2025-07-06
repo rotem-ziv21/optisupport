@@ -10,7 +10,20 @@ const hasValidCredentials = supabaseUrl &&
   supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY_HERE';
 
 export const supabase = hasValidCredentials 
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+      global: {
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+      }
+    })
   : null;
 
 export const isSupabaseConfigured = hasValidCredentials;

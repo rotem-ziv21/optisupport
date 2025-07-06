@@ -381,18 +381,29 @@ class TicketService {
       const summary = await aiService.summarizeTicket(ticket, ticket.conversation);
       const riskAssessment = await aiService.assessRisk(ticket, ticket.conversation);
 
-      await supabase
-        .from('tickets')
-        .update({
-          priority: analysis.classification.priority,
-          category: analysis.classification.category,
-          tags: analysis.suggested_tags,
-          sentiment_score: analysis.sentiment.score,
-          risk_level: riskAssessment.level,
-          ai_summary: summary,
-          suggested_replies: analysis.suggested_replies
-        })
-        .eq('id', ticketId);
+      // Ensure suggested_replies is a valid array
+      const validReplies = Array.isArray(analysis.suggested_replies) 
+        ? analysis.suggested_replies.filter(reply => typeof reply === 'string')
+        : [];
+        
+      console.log('Updating ticket with AI analysis, suggested_replies:', JSON.stringify(validReplies));
+      
+      try {
+        await supabase
+          .from('tickets')
+          .update({
+            priority: analysis.classification.priority,
+            category: analysis.classification.category,
+            tags: Array.isArray(analysis.suggested_tags) ? analysis.suggested_tags : [],
+            sentiment_score: analysis.sentiment.score,
+            risk_level: riskAssessment.level,
+            ai_summary: summary,
+            suggested_replies: validReplies
+          })
+          .eq('id', ticketId);
+      } catch (updateError) {
+        console.error('Failed to update ticket with AI analysis:', updateError);
+      }
     } catch (error) {
       console.error('Failed to perform AI analysis:', error);
     }
@@ -412,9 +423,15 @@ class TicketService {
         // Add the auto-generated solution as a suggested reply
         const currentTicket = await this.getTicket(ticketId);
         if (currentTicket) {
+          // Make sure current suggested_replies is an array
+          const currentReplies = Array.isArray(currentTicket.suggested_replies) 
+            ? currentTicket.suggested_replies 
+            : [];
+            
+          // Create updated replies array with the new solution at the beginning
           const updatedReplies = [
             cleanSolutionContent,
-            ...(currentTicket.suggested_replies || [])
+            ...currentReplies
           ].slice(0, 5); // Keep only top 5 suggestions
 
           if (isSupabaseConfigured && supabase) {
@@ -423,10 +440,17 @@ class TicketService {
               .filter(reply => typeof reply === 'string' && reply.trim().length > 0)
               .map(reply => reply.replace(/[\x00-\x1F\x7F]/g, '').trim()); // Remove control characters
             
-            await supabase
-              .from('tickets')
-              .update({ suggested_replies: sanitizedReplies })
-              .eq('id', ticketId);
+            // Make sure we're sending a valid JSON array
+            console.log('Updating ticket with sanitized replies:', JSON.stringify(sanitizedReplies));
+            
+            try {
+              await supabase
+                .from('tickets')
+                .update({ suggested_replies: sanitizedReplies })
+                .eq('id', ticketId);
+            } catch (updateError) {
+              console.error('Failed to update suggested_replies:', updateError);
+            }
           }
         }
       }

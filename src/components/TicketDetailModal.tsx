@@ -1,27 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  XMarkIcon,
-  TicketIcon,
-  UserIcon,
-  EnvelopeIcon,
-  ClockIcon,
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  SparklesIcon,
-  ChatBubbleLeftRightIcon,
-  DocumentTextIcon,
-  TagIcon,
-  FaceSmileIcon,
-  FaceFrownIcon,
-  ExclamationCircleIcon,
-  PaperAirplaneIcon,
-  ChevronDownIcon,
-  PlusIcon
+import { 
+  XMarkIcon, 
+  UserIcon, 
+  ClockIcon, 
+  TagIcon, 
+  ChatBubbleLeftRightIcon, 
+  PaperAirplaneIcon, 
+  EnvelopeIcon, 
+  PlusIcon, 
+  ChevronDownIcon, 
+  ChevronUpIcon, 
+  TicketIcon, 
+  FaceSmileIcon, 
+  FaceFrownIcon, 
+  ExclamationCircleIcon, 
+  ExclamationTriangleIcon, 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  SparklesIcon, 
+  DocumentTextIcon, 
+  ClipboardDocumentIcon 
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
-import { Ticket, Message, AgentAction } from '../types';
+import { Ticket, AgentAction } from '../types';
 import { ticketService } from '../services/ticketService';
 import { knowledgeBaseService } from '../services/knowledgeBaseService';
 
@@ -95,6 +98,7 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [autoSolution, setAutoSolution] = useState<string | null>(null);
   const [solutionLoading, setSolutionLoading] = useState(false);
+  const [showAutoSolution, setShowAutoSolution] = useState(true);
   const [solutionGenerated, setSolutionGenerated] = useState(false);
   const [regeneratingSolution, setRegeneratingSolution] = useState(false);
   const [newAgentAction, setNewAgentAction] = useState('');
@@ -204,6 +208,7 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
       setRegeneratingSolution(false);
     }
   };
+  // פונקציה לשליחת הודעה כנציג תמיכה
   const handleSendMessage = async () => {
     if (!currentTicket || !newMessage.trim()) return;
 
@@ -222,8 +227,71 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
       if (updatedTicket) {
         setCurrentTicket(updatedTicket);
       }
+      
+      toast.success('ההודעה נשלחה בהצלחה');
     } catch (error) {
       console.error('Failed to send message:', error);
+      toast.error('שגיאה בשליחת ההודעה');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // פונקציה לשליחת הודעה בשם הלקוח
+  const handleSendAsCustomer = async () => {
+    if (!currentTicket || !newMessage.trim()) return;
+
+    setLoading(true);
+    try {
+      await ticketService.addMessage(currentTicket.id, {
+        content: newMessage,
+        sender: 'customer',
+        sender_name: currentTicket.customer_name || 'לקוח'
+      });
+      setNewMessage('');
+      onTicketUpdated?.();
+      
+      // Refresh ticket data
+      const updatedTicket = await ticketService.getTicket(currentTicket.id);
+      if (updatedTicket) {
+        setCurrentTicket(updatedTicket);
+      }
+      
+      toast.success('ההודעה נשלחה בשם הלקוח בהצלחה');
+    } catch (error) {
+      console.error('Failed to send message as customer:', error);
+      toast.error('שגיאה בשליחת ההודעה בשם הלקוח');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // פונקציה לשליחת הודעה ללקוח
+  const handleSendToCustomer = async () => {
+    if (!currentTicket || !newMessage.trim()) return;
+
+    setLoading(true);
+    try {
+      // שימוש בפונקציה החדשה לשליחת הודעה ללקוח
+      await ticketService.sendMessageToCustomer(
+        currentTicket.id,
+        newMessage,
+        'נציג תמיכה'
+      );
+      
+      setNewMessage('');
+      onTicketUpdated?.();
+      
+      // רענון נתוני הכרטיס
+      const updatedTicket = await ticketService.getTicket(currentTicket.id);
+      if (updatedTicket) {
+        setCurrentTicket(updatedTicket);
+      }
+      
+      toast.success('ההודעה נשלחה ללקוח בהצלחה');
+    } catch (error) {
+      console.error('Failed to send message to customer:', error);
+      toast.error('שגיאה בשליחת ההודעה ללקוח');
     } finally {
       setLoading(false);
     }
@@ -246,8 +314,40 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
     }
   };
 
-  const handleUseSuggestedReply = (reply: string) => {
+  const handleUseSuggestedReply = async (reply: string) => {
     setNewMessage(reply);
+  
+    // שליחת ההודעה אוטומטית ללקוח
+    try {
+      setLoading(true);
+      
+      if (!currentTicket) return;
+      
+      await ticketService.addMessage(currentTicket.id, {
+        content: reply,
+        sender: 'agent',
+        sender_name: 'נציג שירות',
+        is_ai_suggested: true
+      });
+      
+      // ניקוי שדה ההודעה
+      setNewMessage('');
+      onTicketUpdated?.();
+      
+      // רענון נתוני הכרטיס
+      const updatedTicket = await ticketService.getTicket(currentTicket.id);
+      if (updatedTicket) {
+        setCurrentTicket(updatedTicket);
+      }
+      
+      // הודעה למשתמש שההודעה נשלחה
+      toast.success('הפתרון נשלח ללקוח בהצלחה');
+    } catch (error) {
+      console.error('Failed to send solution:', error);
+      toast.error('שגיאה בשליחת הפתרון ללקוח');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddAgentAction = async () => {
@@ -332,7 +432,8 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
 
   const StatusIcon = statusIcons[currentTicket.status];
   const SentimentIcon = getSentimentIcon(currentTicket.sentiment_score);
-  const currentStatusOption = statusOptions.find(option => option.value === currentTicket.status);
+  // מוצא את האפשרות הנוכחית של הסטטוס לפי ערך הסטטוס של הכרטיס
+  // משתנה זה יכול לשמש בעתיד להצגת מידע נוסף על הסטטוס
 
   return (
     <AnimatePresence>
@@ -500,16 +601,137 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                         </button>
                       </div>
                     </div>
+                    
+                    {/* Ticket Messages - מוצג גם בכרטיסי לקוח */}
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                        <ChatBubbleLeftRightIcon className="h-4 w-4 ml-1" />
+                        הודעות בכרטיס
+                      </h4>
+                      
+                      {currentTicket.conversation && currentTicket.conversation.length > 0 ? (
+                        <div className="mb-3 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50">
+                          <div className="space-y-3">
+                            {currentTicket.conversation.map((message) => {
+                              // בדיקה אם ההודעה נשלחה ללקוח
+                              const isSentToCustomer = message.content.startsWith('[נשלח ללקוח]');
+                              const messageContent = isSentToCustomer 
+                                ? message.content.replace('[נשלח ללקוח]', '').trim() 
+                                : message.content;
+                                
+                              return (
+                                <div
+                                  key={message.id}
+                                  className={clsx(
+                                    'flex items-end space-x-2 space-x-reverse',
+                                    message.sender === 'customer' ? 'justify-start' : 'justify-end'
+                                  )}
+                                >
+                                  {/* אייקון המציין את סוג השולח */}
+                                  {message.sender === 'customer' && (
+                                    <div className="flex-shrink-0 h-6 w-6 rounded-full bg-gray-200 flex items-center justify-center">
+                                      <UserIcon className="h-4 w-4 text-gray-600" />
+                                    </div>
+                                  )}
+                                  
+                                  <div className="flex flex-col">
+                                    {/* בועת הצ'אט */}
+                                    <div
+                                      className={clsx(
+                                        'max-w-xs px-3 py-1.5 rounded-lg text-sm',
+                                        message.sender === 'customer'
+                                          ? 'bg-gray-100 text-gray-900 rounded-tr-lg rounded-bl-lg rounded-br-lg'
+                                          : isSentToCustomer
+                                            ? 'bg-green-600 text-white rounded-tl-lg rounded-bl-lg rounded-br-lg'
+                                            : 'bg-blue-600 text-white rounded-tl-lg rounded-bl-lg rounded-tr-lg'
+                                      )}
+                                    >
+                                      <p className="text-sm">{messageContent}</p>
+                                      
+                                      {/* סימון שההודעה נשלחה ללקוח */}
+                                      {isSentToCustomer && (
+                                        <div className="flex items-center mt-1">
+                                          <EnvelopeIcon className="h-3 w-3 text-green-100 mr-1" />
+                                          <span className="text-xs text-green-100">נשלח ללקוח</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {/* פרטי השולח והזמן */}
+                                    <p className="text-xs mt-0.5 self-end text-gray-500">
+                                      {message.sender_name} • {new Date(message.created_at).toLocaleTimeString('he-IL')}
+                                    </p>
+                                  </div>
+                                  
+                                  {/* אייקון המציין את סוג השולח */}
+                                  {message.sender !== 'customer' && (
+                                    <div className={clsx(
+                                      "flex-shrink-0 h-6 w-6 rounded-full flex items-center justify-center",
+                                      isSentToCustomer ? "bg-green-100" : "bg-blue-100"
+                                    )}>
+                                      {isSentToCustomer ? (
+                                        <EnvelopeIcon className="h-4 w-4 text-green-600" />
+                                      ) : (
+                                        <ChatBubbleLeftRightIcon className="h-4 w-4 text-blue-600" />
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">אין הודעות בכרטיס זה</p>
+                      )}
+                      
+                      {/* תיבת הודעה מקוצרת */}
+                      <div className="flex space-x-2 space-x-reverse">
+                        <input
+                          type="text"
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          placeholder="כתוב הודעה..."
+                          className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                        />
+                        <button
+                          onClick={handleSendMessage}
+                          disabled={loading || !newMessage.trim()}
+                          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center"
+                        >
+                          <PaperAirplaneIcon className="h-4 w-4 ml-1" />
+                          שלח
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                  {/* Auto Solution */}
                  <div className="flex-shrink-0">
                    {(autoSolution || solutionLoading) && (
                      <div className="p-4 bg-white border-b border-gray-200">
-                     <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                       <SparklesIcon className="h-4 w-4 ml-1 text-purple-600" />
-                       פתרון אוטומטי ממאגר הידע
-                     </h4>
+                     <div className="flex justify-between items-center mb-3">
+                       <h4 className="text-sm font-medium text-gray-900 flex items-center">
+                         <SparklesIcon className="h-4 w-4 ml-1 text-purple-600" />
+                         פתרון אוטומטי ממאגר הידע
+                       </h4>
+                       
+                       {/* כפתור צמצום/הרחבה */}
+                       {!solutionLoading && autoSolution && (
+                         <button 
+                           onClick={() => setShowAutoSolution((prev: boolean) => !prev)}
+                           className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                         >
+                           {showAutoSolution ? (
+                             <ChevronUpIcon className="h-5 w-5" />
+                           ) : (
+                             <ChevronDownIcon className="h-5 w-5" />
+                           )}
+                         </button>
+                       )}
+                     </div>
+                     
                      {solutionLoading ? (
                        <div className="flex items-center space-x-2 space-x-reverse">
                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
@@ -517,11 +739,13 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                        </div>
                      ) : autoSolution ? (
                        <div>
-                          <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-3">
-                             <div className="text-sm text-purple-800 prose prose-sm max-w-none whitespace-pre-wrap">
-                               {autoSolution}
-                             </div>
-                         </div>
+                          {showAutoSolution && (
+                            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-3">
+                              <div className="text-sm text-purple-800 prose prose-sm max-w-none whitespace-pre-wrap">
+                                {autoSolution}
+                              </div>
+                            </div>
+                          )}
                           <div className="flex space-x-2 space-x-reverse">
                             <button
                               onClick={() => handleUseSuggestedReply(autoSolution.replace(/<[^>]*>/g, ''))}
@@ -533,6 +757,7 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                               onClick={() => {
                                 const plainText = autoSolution.replace(/<[^>]*>/g, '');
                                 navigator.clipboard.writeText(plainText);
+                                toast.success('הפתרון הועתק ללוח');
                               }}
                               className="px-3 py-2 text-sm text-purple-600 border border-purple-600 rounded hover:bg-purple-50 transition-colors"
                             >
@@ -560,57 +785,142 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                     </h3>
                     
                     <div className="space-y-4">
-                      {currentTicket.conversation.map((message) => (
-                        <div
-                          key={message.id}
-                          className={clsx(
-                            'flex',
-                            message.sender === 'customer' ? 'justify-start' : 'justify-end'
-                          )}
-                        >
+                      {currentTicket.conversation.map((message) => {
+                        // בדיקה אם ההודעה נשלחה ללקוח (על פי התחילית בתוכן)
+                        const isSentToCustomer = message.content.startsWith('[נשלח ללקוח]');
+                        const messageContent = isSentToCustomer 
+                          ? message.content.replace('[נשלח ללקוח]', '').trim() 
+                          : message.content;
+                          
+                        return (
                           <div
+                            key={message.id}
                             className={clsx(
-                              'max-w-xs lg:max-w-md px-4 py-2 rounded-lg',
-                              message.sender === 'customer'
-                                ? 'bg-gray-100 text-gray-900'
-                                : 'bg-blue-600 text-white'
+                              'flex items-end space-x-2 space-x-reverse',
+                              message.sender === 'customer' ? 'justify-start' : 'justify-end'
                             )}
                           >
-                            <p className="text-sm">{message.content}</p>
-                            <p className={clsx(
-                              'text-xs mt-1',
-                              message.sender === 'customer' ? 'text-gray-500' : 'text-blue-100'
-                            )}>
-                              {message.sender_name} • {new Date(message.created_at).toLocaleTimeString('he-IL')}
-                            </p>
+                            {/* אייקון המציין את סוג השולח */}
+                            {message.sender === 'customer' && (
+                              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                <UserIcon className="h-5 w-5 text-gray-600" />
+                              </div>
+                            )}
+                            
+                            <div className="flex flex-col">
+                              {/* בועת הצ'אט */}
+                              <div
+                                className={clsx(
+                                  'max-w-xs lg:max-w-md px-4 py-2 rounded-lg',
+                                  message.sender === 'customer'
+                                    ? 'bg-gray-100 text-gray-900 rounded-tr-lg rounded-bl-lg rounded-br-lg'
+                                    : isSentToCustomer
+                                      ? 'bg-green-600 text-white rounded-tl-lg rounded-bl-lg rounded-br-lg'
+                                      : 'bg-blue-600 text-white rounded-tl-lg rounded-bl-lg rounded-tr-lg'
+                                )}
+                              >
+                                <p className="text-sm">{messageContent}</p>
+                                
+                                {/* סימון שההודעה נשלחה ללקוח */}
+                                {isSentToCustomer && (
+                                  <div className="flex items-center mt-1">
+                                    <EnvelopeIcon className="h-3 w-3 text-green-100 mr-1" />
+                                    <span className="text-xs text-green-100">נשלח ללקוח</span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* פרטי השולח והזמן */}
+                              <p className={clsx(
+                                'text-xs mt-1 self-end',
+                                message.sender === 'customer' ? 'text-gray-500' : 'text-gray-500'
+                              )}>
+                                {message.sender_name} • {new Date(message.created_at).toLocaleTimeString('he-IL')}
+                              </p>
+                            </div>
+                            
+                            {/* אייקון המציין את סוג השולח */}
+                            {message.sender !== 'customer' && (
+                              <div className={clsx(
+                                "flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center",
+                                isSentToCustomer ? "bg-green-100" : "bg-blue-100"
+                              )}>
+                                {isSentToCustomer ? (
+                                  <EnvelopeIcon className="h-5 w-5 text-green-600" />
+                                ) : (
+                                  <ChatBubbleLeftRightIcon className="h-5 w-5 text-blue-600" />
+                                )}
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {/* Message Input */}
                     <div className="mt-4 border-t border-gray-200 pt-4 sticky bottom-0 bg-white">
-                      <div className="flex space-x-2 space-x-reverse">
+                      <div className="flex flex-col space-y-2">
                         <input
                           type="text"
                           value={newMessage}
                           onChange={(e) => setNewMessage(e.target.value)}
                           placeholder="כתוב תגובה..."
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                           disabled={loading}
                         />
-                        <button
-                          onClick={handleSendMessage}
-                          disabled={loading || !newMessage.trim()}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                        >
-                          {loading ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          ) : (
-                            <PaperAirplaneIcon className="h-4 w-4" />
-                          )}
-                        </button>
+                        <div className="flex space-x-2 space-x-reverse justify-end">
+                          {/* כפתור לשליחת הודעה בשם הלקוח */}
+                          <button
+                            onClick={handleSendAsCustomer}
+                            disabled={loading || !newMessage.trim()}
+                            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                            title="שלח הודעה בשם הלקוח"
+                          >
+                            {loading ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-700"></div>
+                            ) : (
+                              <>
+                                <UserIcon className="h-4 w-4 ml-1" />
+                                שלח כלקוח
+                              </>
+                            )}
+                          </button>
+                          
+                          {/* כפתור לשליחת הודעה ללקוח */}
+                          <button
+                            onClick={handleSendToCustomer}
+                            disabled={loading || !newMessage.trim()}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                            title="שלח הודעה ללקוח"
+                          >
+                            {loading ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            ) : (
+                              <>
+                                <EnvelopeIcon className="h-4 w-4 ml-1" />
+                                שלח ללקוח
+                              </>
+                            )}
+                          </button>
+                          
+                          {/* כפתור לשליחת הודעה כנציג */}
+                          <button
+                            onClick={handleSendMessage}
+                            disabled={loading || !newMessage.trim()}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                            title="שלח הודעה כנציג תמיכה"
+                          >
+                            {loading ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            ) : (
+                              <>
+                                <PaperAirplaneIcon className="h-4 w-4 ml-1" />
+                                שלח כנציג
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -712,13 +1022,25 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                         </h4>
                         <div className="space-y-2 max-h-40 overflow-y-auto">
                           {suggestedReplies.map((reply, index) => (
-                            <button
-                              key={index}
-                              onClick={() => handleUseSuggestedReply(reply)}
-                              className="w-full text-right p-2 text-xs bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
-                            >
-                              {reply.length > 80 ? reply.substring(0, 80) + '...' : reply}
-                            </button>
+                            <div key={index} className="flex space-x-2 space-x-reverse">
+                              <button
+                                onClick={() => handleUseSuggestedReply(reply)}
+                                className="flex-1 text-right p-2 text-xs bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors flex items-center justify-between"
+                              >
+                                <span>{reply.length > 80 ? reply.substring(0, 80) + '...' : reply}</span>
+                                <PaperAirplaneIcon className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setNewMessage(reply);
+                                  toast.success('הפתרון הועתק לתיבת ההודעה');
+                                }}
+                                className="p-2 text-xs bg-gray-100 hover:bg-gray-200 rounded border border-gray-200 transition-colors"
+                                title="העתק לתיבת ההודעה"
+                              >
+                                <ClipboardDocumentIcon className="h-3 w-3 text-gray-500" />
+                              </button>
+                            </div>
                           ))}
                         </div>
                       </div>

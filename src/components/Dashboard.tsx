@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   TicketIcon,
   ClockIcon,
@@ -45,47 +46,66 @@ const StatCard = ({ title, value, icon: Icon, color, trend, subtitle }: {
   </motion.div>
 );
 
-const RecentTickets = ({ tickets }: { tickets: any[] }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay: 0.2 }}
-    className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
-  >
-    <h3 className="text-lg font-semibold text-gray-900 mb-4">כרטיסים אחרונים</h3>
-    <div className="space-y-4">
-      {tickets.map((ticket, index) => (
-        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-          <div className="flex items-center space-x-3 space-x-reverse">
-            <div className={`p-2 rounded-lg ${
-              ticket.priority === 'urgent' ? 'bg-red-100 text-red-600' :
-              ticket.priority === 'high' ? 'bg-orange-100 text-orange-600' :
-              ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-600' :
-              'bg-green-100 text-green-600'
-            }`}>
-              <TicketIcon className="h-4 w-4" />
+const RecentTickets = ({ tickets }: { tickets: any[] }) => {
+  const navigate = useNavigate();
+  
+  const handleTicketClick = (ticketId: string) => {
+    navigate(`/tickets/${ticketId}`);
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="bg-white rounded-xl shadow-sm border border-gray-200 p-6"
+    >
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">כרטיסים אחרונים</h3>
+      <div className="space-y-4">
+        {tickets.length > 0 ? (
+          tickets.map((ticket, index) => (
+            <div 
+              key={index} 
+              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+              onClick={() => handleTicketClick(ticket.id)}
+              role="button"
+              tabIndex={0}
+              aria-label={`פתח כרטיס: ${ticket.title}`}
+            >
+              <div className="flex items-center space-x-3 space-x-reverse">
+                <div className={`p-2 rounded-lg ${
+                  ticket.priority === 'urgent' ? 'bg-red-100 text-red-600' :
+                  ticket.priority === 'high' ? 'bg-orange-100 text-orange-600' :
+                  ticket.priority === 'medium' ? 'bg-yellow-100 text-yellow-600' :
+                  'bg-green-100 text-green-600'
+                }`}>
+                  <TicketIcon className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{ticket.title}</p>
+                  <p className="text-sm text-gray-500">{ticket.customer_name || ticket.customer}</p>
+                </div>
+              </div>
+              <div className="text-left">
+                <p className={`text-xs font-medium px-2 py-1 rounded-full ${
+                  ticket.status === 'open' ? 'bg-blue-100 text-blue-700' :
+                  ticket.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-green-100 text-green-700'
+                }`}>
+                  {ticket.status === 'open' ? 'פתוח' :
+                  ticket.status === 'in_progress' ? 'בטיפול' : 'נפתר'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">{ticket.time || ticket.formatted_time || new Date(ticket.created_at).toLocaleString('he-IL')}</p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium text-gray-900">{ticket.title}</p>
-              <p className="text-sm text-gray-500">{ticket.customer}</p>
-            </div>
-          </div>
-          <div className="text-left">
-            <p className={`text-xs font-medium px-2 py-1 rounded-full ${
-              ticket.status === 'open' ? 'bg-blue-100 text-blue-700' :
-              ticket.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
-              'bg-green-100 text-green-700'
-            }`}>
-              {ticket.status === 'open' ? 'פתוח' :
-               ticket.status === 'in_progress' ? 'בטיפול' : 'נפתר'}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">{ticket.time}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  </motion.div>
-);
+          ))
+        ) : (
+          <p className="text-center text-gray-500 py-4">אין כרטיסים אחרונים להצגה</p>
+        )}
+      </div>
+    </motion.div>
+  );
+};
 
 const AIInsights = () => (
   <motion.div
@@ -118,6 +138,8 @@ const AIInsights = () => (
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recentTickets, setRecentTickets] = useState<any[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -131,17 +153,48 @@ export function Dashboard() {
       }
     };
 
+    const fetchRecentTickets = async () => {
+      try {
+        setTicketsLoading(true);
+        // קבלת כל הכרטיסים ואז לקחת רק 5 הראשונים
+        const allTickets = await ticketService.getTickets();
+        console.log('All tickets fetched:', allTickets);
+        
+        // בדיקה אם יש כרטיסים שהוחזרו
+        if (allTickets && allTickets.length > 0) {
+          // לקיחת 5 הכרטיסים הראשונים בלבד
+          const recentTickets = allTickets.slice(0, 5);
+          console.log('Recent tickets to display:', recentTickets);
+          setRecentTickets(recentTickets);
+        } else {
+          console.warn('No tickets returned from service, using fallback data');
+          // אם אין כרטיסים, השתמש בנתונים מדגמיים
+          setRecentTickets([
+            { id: 'mock1', title: 'בעיות התחברות באפליקציה הנייד', customer_name: 'שרה יוחנן', status: 'open', priority: 'high', time: 'לפני שעתיים' },
+            { id: 'mock2', title: 'אי התאמה בחיוב', customer_name: 'מיכאל כהן', status: 'in_progress', priority: 'medium', time: 'לפני 4 שעות' },
+            { id: 'mock3', title: 'בקשת תכונה: מצב לילה', customer_name: 'אלכס ריברה', status: 'open', priority: 'low', time: 'לפני 6 שעות' },
+            { id: 'mock4', title: 'איפוס סיסמה לא עובד', customer_name: 'ליסה פארק', status: 'resolved', priority: 'urgent', time: 'לפני יום' },
+          ]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch recent tickets:', error);
+        // Fallback to mock data if API fails
+        setRecentTickets([
+          { id: 'mock1', title: 'בעיות התחברות באפליקציה הנייד', customer_name: 'שרה יוחנן', status: 'open', priority: 'high', time: 'לפני שעתיים' },
+          { id: 'mock2', title: 'אי התאמה בחיוב', customer_name: 'מיכאל כהן', status: 'in_progress', priority: 'medium', time: 'לפני 4 שעות' },
+          { id: 'mock3', title: 'בקשת תכונה: מצב לילה', customer_name: 'אלכס ריברה', status: 'open', priority: 'low', time: 'לפני 6 שעות' },
+          { id: 'mock4', title: 'איפוס סיסמה לא עובד', customer_name: 'ליסה פארק', status: 'resolved', priority: 'urgent', time: 'לפני יום' },
+        ]);
+      } finally {
+        setTicketsLoading(false);
+      }
+    };
+
     fetchStats();
+    fetchRecentTickets();
   }, []);
 
-  const recentTickets = [
-    { title: 'בעיות התחברות באפליקציה הנייד', customer: 'שרה יוחנן', status: 'open', priority: 'high', time: 'לפני שעתיים' },
-    { title: 'אי התאמה בחיוב', customer: 'מיכאל כהן', status: 'in_progress', priority: 'medium', time: 'לפני 4 שעות' },
-    { title: 'בקשת תכונה: מצב לילה', customer: 'אלכס ריברה', status: 'open', priority: 'low', time: 'לפני 6 שעות' },
-    { title: 'איפוס סיסמה לא עובד', customer: 'ליסה פארק', status: 'resolved', priority: 'urgent', time: 'לפני יום' },
-  ];
-
-  if (loading) {
+  if (loading || ticketsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>

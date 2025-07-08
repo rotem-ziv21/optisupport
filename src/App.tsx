@@ -1,5 +1,4 @@
 import React from 'react';
-import { Toaster } from 'react-hot-toast';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
@@ -11,16 +10,6 @@ function App() {
   return (
     <Router>
       <Layout>
-        <Toaster position="top-center" toastOptions={{
-          duration: 3000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-            fontFamily: 'system-ui, sans-serif',
-            direction: 'rtl',
-            textAlign: 'right'
-          },
-        }} />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/tickets" element={<TicketList />} />

@@ -1,5 +1,15 @@
 import { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
+// החלפת השימוש ב-toast בפתרון פשוט יותר
+const toast = {
+  success: (message: string) => {
+    console.log('Success:', message);
+    alert(message);
+  },
+  error: (message: string) => {
+    console.error('Error:', message);
+    alert(message);
+  }
+};
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   XMarkIcon, 

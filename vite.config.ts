@@ -5,25 +5,14 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
-    exclude: ['lucide-react'],
-    include: ['react-hot-toast']
+    exclude: ['lucide-react']
   },
   build: {
-    commonjsOptions: {
-      include: [/react-hot-toast/, /node_modules/]
-    },
     rollupOptions: {
+      external: ['react-hot-toast'],
       output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules')) {
-            if (id.includes('react-hot-toast')) {
-              return 'toast-vendor';
-            }
-            if (id.includes('react')) {
-              return 'react-vendor';
-            }
-            return 'vendor';
-          }
+        globals: {
+          'react-hot-toast': 'ReactHotToast'
         }
       }
     }

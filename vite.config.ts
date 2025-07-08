@@ -9,11 +9,21 @@ export default defineConfig({
     include: ['react-hot-toast']
   },
   build: {
+    commonjsOptions: {
+      include: [/react-hot-toast/, /node_modules/]
+    },
     rollupOptions: {
-      external: ['react-hot-toast'],
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (id.includes('react-hot-toast')) {
+              return 'toast-vendor';
+            }
+            if (id.includes('react')) {
+              return 'react-vendor';
+            }
+            return 'vendor';
+          }
         }
       }
     }

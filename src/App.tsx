@@ -1,4 +1,7 @@
 import React from 'react';
+// ייבוא Toaster באופן דינמי כדי לפתור בעיית בנייה
+import * as ReactHotToast from 'react-hot-toast';
+const { Toaster } = ReactHotToast;
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
@@ -10,6 +13,16 @@ function App() {
   return (
     <Router>
       <Layout>
+        <Toaster position="top-center" toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+            fontFamily: 'system-ui, sans-serif',
+            direction: 'rtl',
+            textAlign: 'right'
+          },
+        }} />
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/tickets" element={<TicketList />} />

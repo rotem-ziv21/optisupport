@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
+// ייבוא toast באופן דינמי כדי לפתור בעיית בנייה
+import * as ReactHotToast from 'react-hot-toast';
+const toast = ReactHotToast.default || ReactHotToast;
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   XMarkIcon, 

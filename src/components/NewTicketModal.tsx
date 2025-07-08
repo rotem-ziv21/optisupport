@@ -7,7 +7,9 @@ import {
   DocumentTextIcon,
   ExclamationTriangleIcon,
   TagIcon,
-  SparklesIcon
+  SparklesIcon,
+  PhoneIcon,
+  BuildingOfficeIcon
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 import { ticketService } from '../services/ticketService';
@@ -38,6 +40,8 @@ export function NewTicketModal({ isOpen, onClose, onTicketCreated }: NewTicketMo
     description: '',
     customer_name: '',
     customer_email: '',
+    customer_phone: '',
+    company_name: '',
     priority: 'medium',
     category: 'general'
   });
@@ -68,6 +72,9 @@ export function NewTicketModal({ isOpen, onClose, onTicketCreated }: NewTicketMo
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.customer_email)) {
       newErrors.customer_email = 'פורמט אימייל לא תקין';
     }
+    if (formData.customer_phone.trim() && !/^[0-9\-\+\s()]*$/.test(formData.customer_phone)) {
+      newErrors.customer_phone = 'פורמט טלפון לא תקין';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -90,6 +97,8 @@ export function NewTicketModal({ isOpen, onClose, onTicketCreated }: NewTicketMo
         description: '',
         customer_name: '',
         customer_email: '',
+        customer_phone: '',
+        company_name: '',
         priority: 'medium',
         category: 'general'
       });
@@ -170,7 +179,6 @@ export function NewTicketModal({ isOpen, onClose, onTicketCreated }: NewTicketMo
                       <p className="mt-1 text-sm text-red-600">{errors.customer_name}</p>
                     )}
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       <EnvelopeIcon className="h-4 w-4 inline ml-1" />
@@ -190,6 +198,43 @@ export function NewTicketModal({ isOpen, onClose, onTicketCreated }: NewTicketMo
                     {errors.customer_email && (
                       <p className="mt-1 text-sm text-red-600">{errors.customer_email}</p>
                     )}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <PhoneIcon className="h-4 w-4 inline ml-1" />
+                      טלפון
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.customer_phone}
+                      onChange={(e) => handleInputChange('customer_phone', e.target.value)}
+                      className={clsx(
+                        'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500',
+                        errors.customer_phone ? 'border-red-300' : 'border-gray-300'
+                      )}
+                      placeholder="מספר טלפון"
+                      disabled={loading}
+                    />
+                    {errors.customer_phone && (
+                      <p className="mt-1 text-sm text-red-600">{errors.customer_phone}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <BuildingOfficeIcon className="h-4 w-4 inline ml-1" />
+                      שם חברה
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.company_name}
+                      onChange={(e) => handleInputChange('company_name', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="שם החברה"
+                      disabled={loading}
+                    />
                   </div>
                 </div>
 

@@ -127,6 +127,8 @@ class TicketService {
     description: string;
     customer_email: string;
     customer_name: string;
+    customer_phone?: string;
+    company_name?: string;
     priority?: string;
     category?: string;
   }): Promise<Ticket> {
@@ -151,6 +153,8 @@ class TicketService {
             description: ticketData.description,
             customer_email: ticketData.customer_email,
             customer_name: ticketData.customer_name,
+            customer_phone: ticketData.customer_phone || undefined,
+            company_name: ticketData.company_name || undefined,
             priority: ticketData.priority || classification.priority,
             category: ticketData.category || classification.category,
             status: 'open',
@@ -186,8 +190,10 @@ class TicketService {
       description: ticketData.description,
       customer_email: ticketData.customer_email,
       customer_name: ticketData.customer_name,
+      customer_phone: ticketData.customer_phone || undefined,
+      company_name: ticketData.company_name || undefined,
       status: 'open',
-      priority: ticketData.priority || 'medium',
+      priority: (ticketData.priority || 'medium') as 'low' | 'medium' | 'high' | 'urgent',
       category: ticketData.category as any || 'general',
       assigned_to: null as any,
       created_at: new Date().toISOString(),

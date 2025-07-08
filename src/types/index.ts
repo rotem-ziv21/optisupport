@@ -15,6 +15,8 @@ export interface Ticket {
   category: 'technical' | 'billing' | 'general' | 'feature_request';
   customer_email: string;
   customer_name: string;
+  customer_phone?: string;
+  company_name?: string;
   assigned_to?: string;
   created_at: string;
   updated_at: string;

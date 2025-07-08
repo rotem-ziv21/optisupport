@@ -1,7 +1,5 @@
 import React from 'react';
-// ייבוא Toaster באופן דינמי כדי לפתור בעיית בנייה
-import * as ReactHotToast from 'react-hot-toast';
-const { Toaster } = ReactHotToast;
+import { Toaster } from 'react-hot-toast';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';

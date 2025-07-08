@@ -10,10 +10,10 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
-      external: [],
+      external: ['react-hot-toast'],
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom', 'react-hot-toast'],
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
         }
       }
     }

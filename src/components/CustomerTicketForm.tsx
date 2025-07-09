@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { 
   UserIcon, 
   EnvelopeIcon, 
@@ -8,7 +9,8 @@ import {
   ChatBubbleLeftRightIcon, 
   TagIcon,
   CheckCircleIcon,
-  ClipboardDocumentIcon
+  ClipboardDocumentIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { ticketService } from '../services/ticketService';
 
@@ -131,85 +133,112 @@ export function CustomerTicketForm() {
   };
   
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 rtl">
-      <div className="max-w-md w-full mx-auto bg-white rounded-lg shadow-md p-8">
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900">פתיחת קריאת שירות</h2>
-          <p className="mt-2 text-gray-600">מלאו את הפרטים ונחזור אליכם בהקדם</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-16 px-4 sm:px-6 lg:px-8 rtl">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="max-w-lg w-full mx-auto bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-10 border border-white/20">
+        <div className="text-center mb-10">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full blur-2xl opacity-20"></div>
+            <div className="relative inline-flex items-center justify-center h-20 w-20 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-600 mb-6 shadow-lg">
+              <ChatBubbleLeftRightIcon className="h-10 w-10" />
+            </div>
+          </div>
+          <h2 className="text-3xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">פתיחת קריאת שירות חדשה</h2>
+          <p className="mt-4 text-slate-600 leading-relaxed">אנא מלאו את הפרטים הבאים ונחזור אליכם בהקדם</p>
         </div>
         
         {success ? (
-          <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <CheckCircleIcon className="h-5 w-5 text-green-400" aria-hidden="true" />
-              </div>
-              <div className="mr-3">
-                <h3 className="text-sm font-medium text-green-800">הפנייה נשלחה בהצלחה</h3>
-                <div className="mt-2 text-sm text-green-700">
-                  <p>תודה שפנית אלינו. נציג שירות יצור איתך קשר בהקדם.</p>
-                </div>
-                
-                {ticketUrl && (
-                  <div className="mt-4 p-3 bg-white rounded-md border border-green-100">
-                    <h4 className="text-sm font-medium text-gray-800">קישור למעקב אחר הפנייה שלך:</h4>
-                    <div className="mt-2 flex items-center">
-                      <input 
-                        type="text" 
-                        readOnly 
-                        value={ticketUrl} 
-                        className="flex-1 block w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-gray-50"
-                      />
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(ticketUrl);
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
-                        }}
-                        className="ml-2 inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        <ClipboardDocumentIcon className="h-4 w-4 ml-1" />
-                        {copied ? 'הועתק!' : 'העתק'}
-                      </button>
-                    </div>
-                    <div className="mt-3">
-                      <Link 
-                        to={`/customer-view/${createdTicketId}`}
-                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                      >
-                        צפייה בפנייה
-                      </Link>
-                    </div>
-                    <p className="mt-2 text-xs text-gray-500">שמרו קישור זה כדי לעקוב אחר סטטוס הפנייה ולהגיב להודעות</p>
-                  </div>
-                )}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
+            className="text-center py-8">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 to-green-500 rounded-full blur-2xl opacity-20"></div>
+              <div className="relative mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-gradient-to-r from-emerald-50 to-green-50 mb-8 shadow-lg">
+                <CheckCircleIcon className="h-10 w-10 text-emerald-600" aria-hidden="true" />
               </div>
             </div>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-4">
-                <div className="flex">
-                  <div className="mr-3">
-                    <h3 className="text-sm font-medium text-red-800">שגיאה</h3>
-                    <div className="mt-2 text-sm text-red-700">
-                      <p>{error}</p>
-                    </div>
-                  </div>
+            <h3 className="text-2xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent mb-4">תודה על פנייתך!</h3>
+            <p className="text-slate-600 mb-8 leading-relaxed">
+              פנייתך התקבלה בהצלחה. מספר הפנייה שלך הוא: <span className="font-semibold text-blue-600">{createdTicketId}</span>
+            </p>
+            
+            {ticketUrl && (
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl mb-10 border border-blue-200/50 shadow-lg">
+                <p className="text-sm font-semibold text-slate-700 mb-4">קישור לצפייה בפנייה:</p>
+                <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm border border-blue-200/50 rounded-xl p-4 shadow-lg">
+                  <span className="text-sm text-slate-500 truncate ml-2 overflow-hidden">{ticketUrl}</span>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.05 }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(ticketUrl);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${copied ? 'bg-emerald-100 text-emerald-700 shadow-lg' : 'bg-blue-100 text-blue-700 hover:bg-blue-200 shadow-md hover:shadow-lg'}`}
+                  >
+                    {copied ? 'הועתק! ✓' : 'העתק קישור'}
+                  </motion.button>
                 </div>
               </div>
             )}
             
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 sm:space-x-reverse justify-center">
+              <motion.div whileHover={{ scale: 1.05, y: -1 }} whileTap={{ scale: 0.95 }}>
+                <Link
+                  to={ticketUrl}
+                  className="inline-flex items-center px-8 py-3 border border-transparent text-base font-semibold rounded-2xl shadow-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full justify-center transition-all duration-200 hover:shadow-xl"
+                >
+                  צפייה בפנייה
+                </Link>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05, y: -1 }} whileTap={{ scale: 0.95 }}>
+                <Link
+                  to="/customer"
+                  className="inline-flex items-center px-8 py-3 border border-slate-300 text-base font-semibold rounded-2xl shadow-lg text-slate-700 bg-white/80 backdrop-blur-sm hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full justify-center transition-all duration-200 hover:shadow-xl"
+                >
+                  חזרה לדף הראשי
+                </Link>
+              </motion.div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.form 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            onSubmit={handleSubmit} 
+            className="space-y-6">
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl bg-gradient-to-r from-red-50 to-pink-50 p-6 mb-6 border border-red-200/50 shadow-lg">
+                <div className="flex">
+                  <div className="ml-3">
+                    <h3 className="text-sm font-semibold text-red-800">שגיאה</h3>
+                    <div className="mt-2 text-sm text-red-700 leading-relaxed">
+                      <p>{error}</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            
+            <div className="grid grid-cols-2 gap-6">
               {/* שם */}
-              <div className="col-span-2 sm:col-span-1">
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              <div>
+                <label htmlFor="name" className="block text-sm font-semibold text-slate-700 mb-2">
                   שם מלא <span className="text-red-500">*</span>
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <UserIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                <div className="relative rounded-xl">
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                    <UserIcon className="h-5 w-5 text-blue-500" aria-hidden="true" />
                   </div>
                   <input
                     type="text"
@@ -217,21 +246,21 @@ export function CustomerTicketForm() {
                     id="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className="block w-full pr-10 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-right"
-                    placeholder="ישראל ישראלי"
+                    className="block w-full pr-12 border-slate-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 text-right shadow-lg bg-white/80 backdrop-blur-sm transition-all duration-200 focus:shadow-xl py-3 px-4"
+                    placeholder="שם מלא"
                     required
                   />
                 </div>
               </div>
               
               {/* אימייל */}
-              <div className="col-span-2 sm:col-span-1">
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <div>
+                <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-2">
                   אימייל <span className="text-red-500">*</span>
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <EnvelopeIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                <div className="relative rounded-xl">
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                    <EnvelopeIcon className="h-5 w-5 text-blue-500" aria-hidden="true" />
                   </div>
                   <input
                     type="email"
@@ -239,7 +268,7 @@ export function CustomerTicketForm() {
                     id="email"
                     value={formData.email}
                     onChange={handleChange}
-                    className="block w-full pr-10 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-right"
+                    className="block w-full pr-12 border-slate-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 text-right shadow-lg bg-white/80 backdrop-blur-sm transition-all duration-200 focus:shadow-xl py-3 px-4"
                     placeholder="your@email.com"
                     required
                   />
@@ -247,13 +276,13 @@ export function CustomerTicketForm() {
               </div>
               
               {/* טלפון */}
-              <div className="col-span-2 sm:col-span-1">
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+              <div>
+                <label htmlFor="phone" className="block text-sm font-semibold text-slate-700 mb-2">
                   טלפון
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <PhoneIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                <div className="relative rounded-xl">
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                    <PhoneIcon className="h-5 w-5 text-blue-500" aria-hidden="true" />
                   </div>
                   <input
                     type="tel"
@@ -261,20 +290,20 @@ export function CustomerTicketForm() {
                     id="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="block w-full pr-10 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-right"
+                    className="block w-full pr-12 border-slate-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 text-right shadow-lg bg-white/80 backdrop-blur-sm transition-all duration-200 focus:shadow-xl py-3 px-4"
                     placeholder="050-0000000"
                   />
                 </div>
               </div>
               
               {/* חברה */}
-              <div className="col-span-2 sm:col-span-1">
-                <label htmlFor="company" className="block text-sm font-medium text-gray-700">
-                  שם חברה
+              <div>
+                <label htmlFor="company" className="block text-sm font-semibold text-slate-700 mb-2">
+                  חברה
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <BuildingOfficeIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                <div className="relative rounded-xl">
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                    <BuildingOfficeIcon className="h-5 w-5 text-blue-500" aria-hidden="true" />
                   </div>
                   <input
                     type="text"
@@ -282,7 +311,7 @@ export function CustomerTicketForm() {
                     id="company"
                     value={formData.company}
                     onChange={handleChange}
-                    className="block w-full pr-10 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-right"
+                    className="block w-full pr-12 border-slate-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 text-right shadow-lg bg-white/80 backdrop-blur-sm transition-all duration-200 focus:shadow-xl py-3 px-4"
                     placeholder="שם החברה שלך"
                   />
                 </div>
@@ -290,12 +319,12 @@ export function CustomerTicketForm() {
               
               {/* נושא */}
               <div className="col-span-2">
-                <label htmlFor="subject" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="subject" className="block text-sm font-semibold text-slate-700 mb-2">
                   נושא <span className="text-red-500">*</span>
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <ChatBubbleLeftRightIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                <div className="relative rounded-xl">
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                    <ChatBubbleLeftRightIcon className="h-5 w-5 text-blue-500" aria-hidden="true" />
                   </div>
                   <input
                     type="text"
@@ -303,7 +332,7 @@ export function CustomerTicketForm() {
                     id="subject"
                     value={formData.subject}
                     onChange={handleChange}
-                    className="block w-full pr-10 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-right"
+                    className="block w-full pr-12 border-slate-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 text-right shadow-lg bg-white/80 backdrop-blur-sm transition-all duration-200 focus:shadow-xl py-3 px-4"
                     placeholder="נושא הפנייה"
                     required
                   />
@@ -312,19 +341,19 @@ export function CustomerTicketForm() {
               
               {/* קטגוריה */}
               <div className="col-span-2">
-                <label htmlFor="category" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="category" className="block text-sm font-semibold text-slate-700 mb-2">
                   קטגוריה
                 </label>
-                <div className="mt-1 relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                    <TagIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
+                <div className="relative rounded-xl">
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                    <TagIcon className="h-5 w-5 text-blue-500" aria-hidden="true" />
                   </div>
                   <select
                     name="category"
                     id="category"
                     value={formData.category}
                     onChange={handleChange}
-                    className="block w-full pr-10 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-right"
+                    className="block w-full pr-12 border-slate-300 rounded-xl focus:ring-blue-500 focus:border-blue-500 text-right shadow-lg appearance-none bg-white/80 backdrop-blur-sm transition-all duration-200 focus:shadow-xl py-3 px-4"
                   >
                     {categories.map((category) => (
                       <option key={category} value={category}>
@@ -337,17 +366,17 @@ export function CustomerTicketForm() {
               
               {/* תיאור */}
               <div className="col-span-2">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="description" className="block text-sm font-semibold text-slate-700 mb-2">
                   תיאור הפנייה <span className="text-red-500">*</span>
                 </label>
-                <div className="mt-1">
+                <div>
                   <textarea
                     id="description"
                     name="description"
-                    rows={4}
+                    rows={5}
                     value={formData.description}
                     onChange={handleChange}
-                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-right"
+                    className="block w-full border-slate-300 rounded-xl shadow-lg focus:ring-blue-500 focus:border-blue-500 text-right bg-white/80 backdrop-blur-sm transition-all duration-200 focus:shadow-xl py-3 px-4"
                     placeholder="אנא תארו את הבעיה או הפנייה שלכם בפירוט"
                     required
                   />
@@ -355,20 +384,37 @@ export function CustomerTicketForm() {
               </div>
             </div>
             
-            <div>
-              <button
+            <div className="pt-4">
+              <motion.button
                 type="submit"
                 disabled={loading}
-                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                  loading ? 'bg-blue-300' : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                whileHover={{ scale: 1.02, y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                className={`w-full flex justify-center py-4 px-6 border border-transparent rounded-2xl shadow-lg text-base font-semibold text-white transition-all duration-200 ${
+                  loading ? 'bg-blue-300 cursor-not-allowed' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 hover:shadow-xl'
                 }`}
               >
-                {loading ? 'שולח...' : 'שליחת הפנייה'}
-              </button>
+                {loading ? (
+                  <span className="flex items-center">
+                    <ArrowPathIcon className="h-5 w-5 mr-2 animate-spin" />
+                    שולח את הפנייה...
+                  </span>
+                ) : (
+                  'שליחת הפנייה'
+                )}
+              </motion.button>
+              <p className="text-xs text-slate-500 text-center mt-4">* שדות חובה</p>
             </div>
-          </form>
+          </motion.form>
         )}
-      </div>
+      </motion.div>
+      <motion.footer 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="mt-12 text-center text-sm text-slate-500">
+        <p className="bg-gradient-to-r from-slate-500 to-gray-500 bg-clip-text text-transparent">© 2025 OptiSupport. כל הזכויות שמורות.</p>
+      </motion.footer>
     </div>
   );
 }

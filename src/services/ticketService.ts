@@ -5,6 +5,89 @@ import { mockTickets } from '../utils/mockData';
 import { knowledgeBaseService } from './knowledgeBaseService';
 
 class TicketService {
+  // פונקציה ליצירת טוקן ייחודי לכרטיס
+  async generateTicketToken(ticketId: string): Promise<string | null> {
+    if (!isSupabaseConfigured || !supabase) {
+      // במצב מדגמי, נחזיר טוקן מדומה
+      return `mock-token-${ticketId}-${Date.now()}`;
+    }
+    
+    try {
+      // בדיקה שהכרטיס קיים
+      const { data: ticket, error: ticketError } = await supabase
+        .from('tickets')
+        .select('id')
+        .eq('id', ticketId)
+        .single();
+      
+      if (ticketError || !ticket) {
+        console.error('Ticket not found:', ticketError);
+        return null;
+      }
+      
+      // יצירת טוקן ייחודי
+      const token = `${ticketId}-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+      
+      // שמירת הטוקן בטבלת טוקנים
+      const { error } = await supabase
+        .from('ticket_tokens')
+        .insert({
+          ticket_id: ticketId,
+          token: token,
+          created_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // תוקף ל-30 יום
+        });
+      
+      if (error) {
+        console.error('Failed to create token:', error);
+        return null;
+      }
+      
+      return token;
+    } catch (error) {
+      console.error('Error generating ticket token:', error);
+      return null;
+    }
+  }
+  
+  // פונקציה לקבלת כרטיס באמצעות טוקן
+  async getTicketByToken(token: string): Promise<Ticket | null> {
+    if (!isSupabaseConfigured || !supabase) {
+      // במצב מדגמי, נחפש כרטיס שמתאים לטוקן המדומה
+      const mockTokenParts = token.split('-');
+      if (mockTokenParts.length >= 2) {
+        const ticketId = mockTokenParts[1];
+        return mockTickets.find(ticket => ticket.id === ticketId) || null;
+      }
+      return null;
+    }
+    
+    try {
+      // בדיקה שהטוקן קיים ותקף
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('ticket_tokens')
+        .select('ticket_id, expires_at')
+        .eq('token', token)
+        .single();
+      
+      if (tokenError || !tokenData) {
+        console.error('Token not found or invalid:', tokenError);
+        return null;
+      }
+      
+      // בדיקת תוקף הטוקן
+      if (new Date(tokenData.expires_at) < new Date()) {
+        console.error('Token expired');
+        return null;
+      }
+      
+      // קבלת הכרטיס המתאים
+      return this.getTicket(tokenData.ticket_id);
+    } catch (error) {
+      console.error('Error fetching ticket by token:', error);
+      return null;
+    }
+  }
   async getTickets(filters?: {
     status?: string;
     priority?: string;
@@ -172,11 +255,13 @@ class TicketService {
 
         // Perform full AI analysis in the background
         this.performAIAnalysis(data.id);
-
-        return {
+        
+        const newTicket = {
           ...data,
           conversation: []
         };
+        
+        return newTicket;
       } catch (error) {
         console.error('Failed to create ticket in Supabase:', error);
         // Fall through to mock creation
@@ -250,9 +335,10 @@ class TicketService {
 
   async addMessage(ticketId: string, message: {
     content: string;
-    sender: 'customer' | 'agent';
+    sender: 'customer' | 'agent' | 'system';
     sender_name: string;
     is_ai_suggested?: boolean;
+    sent_to_customer?: boolean;
   }): Promise<Message> {
     if (!isSupabaseConfigured || !supabase) {
       const mockMessage: Message = {
@@ -267,15 +353,18 @@ class TicketService {
       return mockMessage;
     }
 
+    // נשתמש רק בשדות הקיימים בטבלה
+    const messageData = {
+      ticket_id: ticketId,
+      content: message.content,
+      sender: message.sender,
+      sender_name: message.sender_name,
+      is_ai_suggested: message.is_ai_suggested || false
+    };
+    
     const { data, error } = await supabase
       .from('messages')
-      .insert({
-        ticket_id: ticketId,
-        content: message.content,
-        sender: message.sender,
-        sender_name: message.sender_name,
-        is_ai_suggested: message.is_ai_suggested || false
-      })
+      .insert(messageData)
       .select()
       .single();
 
@@ -295,6 +384,36 @@ class TicketService {
     }
 
     return data;
+  }
+
+  /**
+   * שולח הודעה ללקוח ומעדכן את סטטוס השליחה
+   * @param ticketId מזהה הכרטיס
+   * @param content תוכן ההודעה
+   * @param senderName שם השולח
+   * @returns הודעה שנשלחה
+   */
+  async sendMessageToCustomer(ticketId: string, content: string, senderName: string = 'נציג תמיכה'): Promise<Message> {
+    // קבלת פרטי הכרטיס כדי לדעת למי לשלוח את ההודעה
+    const ticket = await this.getTicket(ticketId);
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+    
+    // במערכת אמיתית, כאן היה קוד ששולח אימייל או SMS ללקוח
+    // לדוגמה: שליחת אימייל לכתובת ticket.customer_email
+    
+    // שמירת ההודעה במערכת עם סימון שהיא נשלחה ללקוח
+    const message = await this.addMessage(ticketId, {
+      content: `[נשלח ללקוח] ${content}`,
+      sender: 'agent',
+      sender_name: senderName
+    });
+    
+    // במערכת אמיתית, כאן היינו מעדכנים את סטטוס השליחה
+    // לדוגמה: בדיקה אם האימייל נשלח בהצלחה
+    
+    return message;
   }
 
   async getSuggestedReplies(ticketId: string): Promise<string[]> {

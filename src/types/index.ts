@@ -33,10 +33,16 @@ export interface Message {
   id: string;
   ticket_id: string;
   content: string;
-  sender: 'customer' | 'agent';
+  sender: 'customer' | 'agent' | 'system';
   sender_name: string;
   created_at: string;
   is_ai_suggested?: boolean;
+  // השדות הבאים אינם קיימים בטבלה הנוכחית בסופרבייס
+  // אנחנו משאירים אותם במודל לצורך הרחבה עתידית
+  // בינתיים אנחנו משתמשים בתוכן ההודעה כדי לסמן הודעות שנשלחו ללקוח
+  sent_to_customer?: boolean;
+  delivery_status?: 'pending' | 'sent' | 'delivered' | 'failed';
+  delivery_time?: string;
 }
 
 export interface User {

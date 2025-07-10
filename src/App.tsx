@@ -8,26 +8,86 @@ import { KnowledgeBase } from './components/KnowledgeBase';
 import { CustomerTicketForm } from './components/CustomerTicketForm';
 import { CustomerLandingPage } from './components/CustomerLandingPage';
 import { CustomerTicketView } from './components/CustomerTicketView';
+import { Login } from './components/Login';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   return (
-    <Router>
-      <Layout>
+    <AuthProvider>
+      <Router>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/tickets" element={<TicketList />} />
-          <Route path="/tickets/:id" element={<TicketDetail />} />
-          <Route path="/knowledge" element={<KnowledgeBase />} />
+          {/* Public customer routes - freely accessible */}
           <Route path="/customer" element={<CustomerLandingPage />} />
           <Route path="/customer-ticket" element={<CustomerTicketForm />} />
           <Route path="/customer-view" element={<CustomerLandingPage />} />
           <Route path="/customer-view/:id" element={<CustomerTicketView />} />
-          <Route path="/team" element={<div className="text-center py-12"><h2 className="text-2xl font-bold text-gray-900">ניהול צוות</h2><p className="text-gray-500 mt-2">בקרוב...</p></div>} />
-          <Route path="/analytics" element={<div className="text-center py-12"><h2 className="text-2xl font-bold text-gray-900">אנליטיקה</h2><p className="text-gray-500 mt-2">בקרוב...</p></div>} />
-          <Route path="/settings" element={<div className="text-center py-12"><h2 className="text-2xl font-bold text-gray-900">הגדרות</h2><p className="text-gray-500 mt-2">בקרוב...</p></div>} />
+          
+          {/* Authentication route */}
+          <Route path="/login" element={<Login />} />
+          
+          {/* Protected agent routes - require authentication */}
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/tickets" element={
+            <ProtectedRoute>
+              <Layout>
+                <TicketList />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/tickets/:id" element={
+            <ProtectedRoute>
+              <Layout>
+                <TicketDetail />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/knowledge" element={
+            <ProtectedRoute>
+              <Layout>
+                <KnowledgeBase />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/team" element={
+            <ProtectedRoute>
+              <Layout>
+                <div className="text-center py-12">
+                  <h2 className="text-2xl font-bold text-gray-900">ניהול צוות</h2>
+                  <p className="text-gray-500 mt-2">בקרוב...</p>
+                </div>
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/analytics" element={
+            <ProtectedRoute>
+              <Layout>
+                <div className="text-center py-12">
+                  <h2 className="text-2xl font-bold text-gray-900">אנליטיקה</h2>
+                  <p className="text-gray-500 mt-2">בקרוב...</p>
+                </div>
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Layout>
+                <div className="text-center py-12">
+                  <h2 className="text-2xl font-bold text-gray-900">הגדרות</h2>
+                  <p className="text-gray-500 mt-2">בקרוב...</p>
+                </div>
+              </Layout>
+            </ProtectedRoute>
+          } />
         </Routes>
-      </Layout>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
 

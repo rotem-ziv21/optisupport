@@ -42,7 +42,7 @@ export function CustomerTicketForm() {
   const [ticketUrl, setTicketUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
   
-  const categories = ['תמיכה טכנית', 'שאלה כללית', 'דיווח על תקלה', 'בקשת שיפור', 'אחר'];
+  const categories = ['תמיכה טכנית', 'שאלה כללית', 'דיווח על תקלה', 'הדרכה', 'אחר'];
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

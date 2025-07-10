@@ -8,11 +8,21 @@ class AIService {
   constructor() {
     this.apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
     
+    console.log('AIService initialized, API key exists:', !!this.apiKey);
+    
     if (this.apiKey) {
-      this.openai = new OpenAI({
-        apiKey: this.apiKey,
-        dangerouslyAllowBrowser: true, // אפשר שימוש בדפדפן למרות הסיכונים
-      });
+      try {
+        this.openai = new OpenAI({
+          apiKey: this.apiKey,
+          dangerouslyAllowBrowser: true, // אפשר שימוש בדפדפן למרות הסיכונים
+        });
+        console.log('OpenAI client initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize OpenAI client:', error);
+        this.openai = null;
+      }
+    } else {
+      console.warn('No OpenAI API key provided, AI features will be limited');
     }
   }
 
@@ -61,12 +71,43 @@ class AIService {
   }
 
   async analyzeSentiment(content: string): Promise<{ score: number; label: 'positive' | 'neutral' | 'negative'; confidence: number }> {
+    console.log('Starting sentiment analysis for content:', content.substring(0, 50) + '...');
+    
+    // Validate input
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      console.warn('Invalid content for sentiment analysis, using neutral fallback');
+      return { score: 0, label: 'neutral', confidence: 0.5 };
+    }
+    
     try {
-      const prompt = this.buildSentimentPrompt(content);
+      if (!this.openai) {
+        console.warn('OpenAI client not initialized, using fallback sentiment');
+        return { score: 0, label: 'neutral', confidence: 0.5 };
+      }
+      
+      const prompt = this.buildSentimentPrompt(content.trim());
+      console.log('Sentiment analysis prompt built, calling OpenAI');
+      
       const response = await this.callOpenAI(prompt);
-      return this.parseSentimentResponse(response);
+      console.log('Sentiment analysis response received:', response.substring(0, 200) + '...');
+      
+      if (!response || response.trim().length === 0) {
+        console.warn('Empty response from OpenAI, using fallback sentiment');
+        return { score: 0, label: 'neutral', confidence: 0.5 };
+      }
+      
+      const result = this.parseSentimentResponse(response);
+      console.log('Sentiment analysis result:', JSON.stringify(result));
+      
+      // Final validation to ensure we return a valid result
+      if (!result || typeof result.score !== 'number' || !result.label || typeof result.confidence !== 'number') {
+        console.warn('Invalid sentiment analysis result, using fallback');
+        return { score: 0, label: 'neutral', confidence: 0.5 };
+      }
+      
+      return result;
     } catch (error) {
-      console.error('Sentiment analysis failed:', error);
+      console.error('Sentiment analysis failed with error:', error);
       return { score: 0, label: 'neutral', confidence: 0.5 };
     }
   }
@@ -83,11 +124,15 @@ class AIService {
   }
 
   private async callOpenAI(prompt: string): Promise<string> {
+    console.log('Calling OpenAI with prompt length:', prompt.length);
+    
     if (!this.openai) {
+      console.error('OpenAI client not initialized, cannot make API call');
       throw new Error('OpenAI API key not configured');
     }
 
     try {
+      console.log('Making OpenAI API request...');
       const chatResponse = await this.openai.chat.completions.create({
         model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
@@ -95,9 +140,14 @@ class AIService {
         temperature: 0.3,
       });
 
+      console.log('OpenAI API request successful');
       return chatResponse.choices[0]?.message?.content || '';
     } catch (error: any) {
-      console.error('OpenAI API error:', error);
+      console.error('OpenAI API error details:', {
+        message: error?.message,
+        status: error?.status,
+        response: error?.response,
+      });
       throw new Error(`OpenAI API error: ${error?.message || 'Unknown error'}`);
     }
   }
@@ -187,14 +237,20 @@ class AIService {
 
   private buildSentimentPrompt(content: string): string {
     return `
-      נתח את הסנטימנט של ההודעה הזו. החזר JSON עם:
+      Analyze the sentiment of the following message and return ONLY a valid JSON object in this exact format:
       {
-        "score": -1.0 to 1.0 (שלילי לחיובי),
-        "label": "positive|neutral|negative",
-        "confidence": 0.0-1.0
+        "score": -1.0,
+        "label": "negative",
+        "confidence": 0.95
       }
 
-      תוכן: ${content}
+      Rules:
+      - score: Must be a number between -1.0 (very negative) and 1.0 (very positive)
+      - label: Must be exactly one of: "positive", "neutral", "negative"
+      - confidence: Must be a number between 0.0 and 1.0
+      - Return ONLY the JSON object, no additional text or explanation
+
+      Content to analyze: ${content}
     `;
   }
 
@@ -223,17 +279,21 @@ class AIService {
 
   private parseAnalysisResponse(response: string): AIAnalysis {
     try {
-      return JSON.parse(response);
+      // נקה תגי markdown מסביב ל-JSON
+      const cleanedResponse = this.cleanMarkdownJSON(response);
+      console.log('Cleaned analysis response:', cleanedResponse.substring(0, 100) + '...');
+      
+      const analysisData = JSON.parse(cleanedResponse);
+      return {
+        classification: analysisData.classification || { category: 'general', priority: 'medium', confidence: 0.5 },
+        sentiment: analysisData.sentiment || { score: 0, label: 'neutral', confidence: 0.5 },
+        suggested_tags: analysisData.suggested_tags || [],
+        suggested_replies: analysisData.suggested_replies || [],
+        summary: analysisData.summary || ''
+      };
     } catch (error) {
       console.error('Failed to parse AI analysis response:', error);
-      return {
-        classification: { category: 'general', priority: 'medium', confidence: 0.5 },
-        sentiment: { score: 0, label: 'neutral', confidence: 0.5 },
-        risk_assessment: { level: 'low', factors: [] },
-        summary: 'לא ניתן ליצור סיכום',
-        suggested_tags: [],
-        suggested_replies: []
-      };
+      return this.getFallbackAnalysis({ title: '', description: '' } as Ticket);
     }
   }
 
@@ -242,40 +302,27 @@ class AIService {
     
     try {
       // נסה לנקות את התשובה אם היא מגיעה בפורמט Markdown
-      let cleanedResponse = response.trim();
       let result: string[] = [];
       
-      // אם התשובה מתחילה ב-```json ומסתיימת ב-```, הסר את התגים האלה
-      const jsonCodeBlockRegex = /```(?:json)?\n([\s\S]+?)\n```/;
-      const match = cleanedResponse.match(jsonCodeBlockRegex);
-      
-      if (match && match[1]) {
-        cleanedResponse = match[1].trim();
-      }
-      
-      // נסה לפרסר את ה-JSON
       try {
-        const parsed = JSON.parse(cleanedResponse);
+        // נקה תגי markdown מסביב ל-JSON
+        const cleanedResponse = this.cleanMarkdownJSON(response);
+        console.log('Cleaned suggested replies response:', cleanedResponse);
         
-        // בדוק אם התוצאה היא מערך
-        if (Array.isArray(parsed)) {
-          result = parsed.filter(item => typeof item === 'string');
-        } 
-        // בדוק אם התוצאה היא אובייקט עם שדה suggested_replies
-        else if (parsed && typeof parsed === 'object' && 'suggested_replies' in parsed) {
-          const replies = parsed.suggested_replies;
-          if (Array.isArray(replies)) {
-            result = replies.filter(item => typeof item === 'string');
-          }
+        const jsonData = JSON.parse(cleanedResponse);
+        if (Array.isArray(jsonData)) {
+          console.log('Successfully parsed JSON replies:', jsonData);
+          return jsonData.filter((reply: any) => typeof reply === 'string' && reply.trim().length > 0);
         }
-        
-        if (result.length > 0) {
-          console.log('Successfully parsed JSON replies:', result);
-          return result;
+        // If it's not an array but a valid JSON object, try to extract replies
+        if (jsonData.replies && Array.isArray(jsonData.replies)) {
+          return jsonData.replies.filter((reply: any) => typeof reply === 'string' && reply.trim().length > 0);
+        }
+        if (jsonData.suggestions && Array.isArray(jsonData.suggestions)) {
+          return jsonData.suggestions.filter((reply: any) => typeof reply === 'string' && reply.trim().length > 0);
         }
       } catch (jsonError) {
-        console.warn('Failed to parse as JSON:', jsonError);
-        // המשך לניסיון הבא אם הפרסור נכשל
+        console.warn('Failed to parse replies as JSON, trying regex extraction:', jsonError);
       }
       
       // נסה לחלץ תשובות בפורמט פשוט יותר
@@ -306,7 +353,12 @@ class AIService {
 
   private parseClassificationResponse(response: string): { category: string; priority: string; confidence: number } {
     try {
-      return JSON.parse(response);
+      // נקה תגי markdown מסביב ל-JSON
+      const cleanedResponse = this.cleanMarkdownJSON(response);
+      console.log('Cleaned classification response:', cleanedResponse);
+      
+      const data = JSON.parse(cleanedResponse);
+      return data;
     } catch (error) {
       console.error('Failed to parse classification response:', error);
       return { category: 'general', priority: 'medium', confidence: 0.5 };
@@ -315,21 +367,78 @@ class AIService {
 
   private parseSentimentResponse(response: string): { score: number; label: 'positive' | 'neutral' | 'negative'; confidence: number } {
     try {
-      return JSON.parse(response);
+      // נקה תגי markdown מסביב ל-JSON
+      const cleanedResponse = this.cleanMarkdownJSON(response);
+      console.log('Cleaned sentiment response:', cleanedResponse);
+      
+      const data = JSON.parse(cleanedResponse);
+      
+      // Validate the response structure and values
+      const validatedResult = this.validateSentimentData(data);
+      console.log('Validated sentiment result:', validatedResult);
+      
+      return validatedResult;
     } catch (error) {
       console.error('Failed to parse sentiment response:', error);
+      console.error('Raw response:', response);
       return { score: 0, label: 'neutral', confidence: 0.5 };
     }
   }
 
+  private validateSentimentData(data: any): { score: number; label: 'positive' | 'neutral' | 'negative'; confidence: number } {
+    // Ensure we have a valid object
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid sentiment data: not an object');
+    }
+
+    // Validate and normalize score
+    let score = 0;
+    if (typeof data.score === 'number' && !isNaN(data.score)) {
+      score = Math.max(-1, Math.min(1, data.score)); // Clamp between -1 and 1
+    } else if (typeof data.score === 'string') {
+      const parsedScore = parseFloat(data.score);
+      if (!isNaN(parsedScore)) {
+        score = Math.max(-1, Math.min(1, parsedScore));
+      }
+    }
+
+    // Validate and normalize label
+    let label: 'positive' | 'neutral' | 'negative' = 'neutral';
+    if (typeof data.label === 'string') {
+      const normalizedLabel = data.label.toLowerCase().trim();
+      if (normalizedLabel === 'positive' || normalizedLabel === 'negative' || normalizedLabel === 'neutral') {
+        label = normalizedLabel as 'positive' | 'neutral' | 'negative';
+      }
+    }
+
+    // Validate and normalize confidence
+    let confidence = 0.5;
+    if (typeof data.confidence === 'number' && !isNaN(data.confidence)) {
+      confidence = Math.max(0, Math.min(1, data.confidence)); // Clamp between 0 and 1
+    } else if (typeof data.confidence === 'string') {
+      const parsedConfidence = parseFloat(data.confidence);
+      if (!isNaN(parsedConfidence)) {
+        confidence = Math.max(0, Math.min(1, parsedConfidence));
+      }
+    }
+
+    return { score, label, confidence };
+  }
+
   private parseRiskResponse(response: string): { level: 'low' | 'medium' | 'high'; factors: string[] } {
     try {
-      return JSON.parse(response);
+      // נקה תגי markdown מסביב ל-JSON
+      const cleanedResponse = this.cleanMarkdownJSON(response);
+      console.log('Cleaned risk response:', cleanedResponse);
+      
+      const data = JSON.parse(cleanedResponse);
+      return data;
     } catch (error) {
       console.error('Failed to parse risk response:', error);
       return { level: 'low', factors: [] };
     }
   }
+
   private getFallbackStructuredSolution(_ticketContent: string): string {
     return `
 פתרון מוצע:
@@ -374,6 +483,22 @@ class AIService {
     return `כרטיס תמיכה: ${ticket.title}. סטטוס: ${ticket.status}. עדיפות: ${ticket.priority}.`;
   }
 
+  // פונקציה לניקוי תגי markdown מסביב ל-JSON
+  private cleanMarkdownJSON(response: string): string {
+    // נקה תגי markdown מסביב ל-JSON
+    let cleanedResponse = response.trim();
+    
+    // הסר תגי קוד של markdown
+    const codeBlockRegex = /```(?:json)?\s*([\s\S]*?)```/;
+    const match = codeBlockRegex.exec(cleanedResponse);
+    
+    if (match && match[1]) {
+      cleanedResponse = match[1].trim();
+    }
+    
+    return cleanedResponse;
+  }
+  
   async generateEmbedding(text: string): Promise<number[]> {
     try {
       if (!this.openai) {

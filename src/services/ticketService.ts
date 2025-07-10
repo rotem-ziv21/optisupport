@@ -223,8 +223,12 @@ class TicketService {
         let sentiment = { score: 0, label: 'neutral' as 'neutral' | 'negative' | 'positive', confidence: 0.5 };
 
         try {
+          console.log('Starting AI classification and sentiment analysis for new ticket');
           classification = await aiService.classifyTicket(ticketData.description);
+          console.log('Classification completed:', classification);
+          
           sentiment = await aiService.analyzeSentiment(ticketData.description);
+          console.log('Sentiment analysis completed:', sentiment);
         } catch (aiError) {
           console.warn('AI analysis failed, using defaults:', aiError);
         }

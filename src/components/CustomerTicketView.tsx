@@ -276,7 +276,45 @@ export function CustomerTicketView() {
                     <div className="text-xs font-semibold text-slate-500 mb-2">
                       {message.sender_name || (message.sender === 'customer' ? 'אתה' : 'נציג תמיכה')} • {formatDate(message.created_at)}
                     </div>
-                    <div className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</div>
+                    <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                      {message.sender === 'agent' ? 
+                        (() => {
+                          // Check if content is a string that might be JSON
+                          if (typeof message.content === 'string' && 
+                              (message.content.startsWith('{') || message.content.startsWith('['))) {
+                            try {
+                              const parsed = JSON.parse(message.content);
+                              
+                              // Handle object with content field
+                              if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.content) {
+                                return parsed.content;
+                              }
+                              // Handle array of actions
+                              else if (Array.isArray(parsed) && parsed.length > 0) {
+                                if (parsed[0].content) {
+                                  return parsed[0].content;
+                                }
+                              }
+                              // Fall back to original content
+                              return message.content;
+                            } catch (e) {
+                              // If parsing fails, use the content as is
+                              return message.content;
+                            }
+                          }
+                          // If content is already an object with a content field
+                          else if (typeof message.content === 'object' && message.content !== null) {
+                            const content = message.content as any;
+                            if (content.content) {
+                              return content.content;
+                            }
+                          }
+                          // Default case: return the content as is
+                          return message.content;
+                        })() : 
+                        message.content
+                      }
+                    </div>
                   </div>
                 </motion.div>
               ))

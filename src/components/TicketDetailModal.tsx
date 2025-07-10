@@ -579,15 +579,55 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                       {/* Action History */}
                       {agentActions.length > 0 && (
                         <div className="mb-3 max-h-40 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-200">
-                          {agentActions.map((action) => (
-                            <div key={action.id} className="p-2 bg-gray-50">
-                              <div className="text-xs text-gray-500 mb-1 flex justify-between">
-                                <span>{action.agent_name || 'נציג'}</span>
-                                <span>{formatDate(action.timestamp)}</span>
+                          {agentActions.map((action) => {
+                            // Handle case where action might be a string representation of JSON
+                            let displayContent = action.content;
+                            
+                            // First check if content is a string that might be JSON
+                            if (typeof action.content === 'string') {
+                              try {
+                                // Try to parse if it's a JSON string
+                                const parsed = JSON.parse(action.content);
+                                if (parsed && typeof parsed === 'object') {
+                                  // If it has a content field, use that
+                                  if (parsed.content) {
+                                    displayContent = parsed.content;
+                                  }
+                                  // If it's an array of actions, use the content from the first one
+                                  else if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].content) {
+                                    displayContent = parsed[0].content;
+                                  }
+                                  // If parsing succeeds but no content field, use original string
+                                  else {
+                                    displayContent = action.content;
+                                  }
+                                }
+                              } catch (e) {
+                                // If parsing fails, use the content as is
+                                displayContent = action.content;
+                              }
+                            }
+                            // If content is an object with a content field
+                            else if (typeof action.content === 'object' && action.content !== null) {
+                              const contentObj = action.content as any;
+                              if (contentObj.content) {
+                                displayContent = contentObj.content;
+                              } else {
+                                // If it's an object but no content field, convert to string
+                                displayContent = typeof action.content === 'string' ? action.content : JSON.stringify(action.content);
+                              }
+                            }
+                            
+                            return (
+                              <div key={action.id} className="p-2 bg-gray-50">
+                                <div className="text-xs text-gray-500 mb-1 flex justify-between">
+                                  <span>{action.agent_name || 'נציג'}</span>
+                                  <span>{formatDate(action.timestamp)}</span>
+                                </div>
+                                <p className="text-sm">{displayContent}</p>
                               </div>
-                              <p className="text-sm">{action.content}</p>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                       

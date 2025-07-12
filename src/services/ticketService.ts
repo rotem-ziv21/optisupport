@@ -119,7 +119,7 @@ class TicketService {
         query = query.eq('assigned_to', filters.assigned_to);
       }
       if (filters?.search) {
-        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%,customer_name.ilike.%${filters.search}%,customer_email.ilike.%${filters.search}%,customer_phone.ilike.%${filters.search}%,company_name.ilike.%${filters.search}%`);
       }
 
       const { data, error } = await query;

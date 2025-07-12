@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   TicketIcon,
@@ -232,7 +232,7 @@ const FilterBar = ({ filters, onFilterChange }: {
             <MagnifyingGlassIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="חיפוש כרטיסים..."
+              placeholder="חיפוש לפי כותרת, תיאור, שם, מייל, טלפון או שם עסק..."
               value={filters.search || ''}
               onChange={(e) => onFilterChange({ ...filters, search: e.target.value || undefined })}
               className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

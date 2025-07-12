@@ -31,12 +31,18 @@ import {
   XCircleIcon, 
   SparklesIcon, 
   DocumentTextIcon, 
-  ClipboardDocumentIcon 
+  ClipboardDocumentIcon, 
+  ClipboardDocumentCheckIcon,
+  ChartBarIcon,
+  BuildingOfficeIcon,
+  PhoneIcon,
+  PencilIcon
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 import { Ticket, AgentAction } from '../types';
 import { ticketService } from '../services/ticketService';
 import { knowledgeBaseService } from '../services/knowledgeBaseService';
+import { enhancedSolutionService } from '../services/enhancedSolutionService';
 
 interface TicketDetailModalProps {
   ticket: Ticket | null;
@@ -114,6 +120,14 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
   const [newAgentAction, setNewAgentAction] = useState('');
   const [agentActions, setAgentActions] = useState<AgentAction[]>([]);
   const [savingActions, setSavingActions] = useState(false);
+  const [searchingSolutions, setSearchingSolutions] = useState(false);
+  const [searchingKnowledgeBase, setSearchingKnowledgeBase] = useState(false);
+  const [enhancedSolutionSources, setEnhancedSolutionSources] = useState<any[]>([]);
+  const [enhancedSolutionConfidence, setEnhancedSolutionConfidence] = useState<number>(0);
+  const [editingSolution, setEditingSolution] = useState(false);
+  const [solution, setSolution] = useState<string>('');
+  const [agentSolution, setAgentSolution] = useState<string>('');
+  const [savingSolution, setSavingSolution] = useState(false);
 
   useEffect(() => {
     // Reset solution state when ticket changes
@@ -218,7 +232,115 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
       setRegeneratingSolution(false);
     }
   };
-  // פונקציה לשליחת הודעה כנציג תמיכה
+  
+  const handleSentimentAnalysis = async () => {
+    // Placeholder for sentiment analysis
+    console.log('Sentiment analysis would be performed here');
+  };
+
+  /**
+   * חיפוש פתרונות דומים מקריאות שירות קודמות
+   */
+  const handleSearchSimilarSolutions = async () => {
+    if (!currentTicket) return;
+    
+    setSearchingSolutions(true);
+    try {
+      const ticketContent = `${currentTicket.title} ${currentTicket.description}`;
+      
+      // חיפוש רק בקריאות קודמות ולא במאגר הידע
+      const previousTicketSources = await enhancedSolutionService.searchPreviousTickets(ticketContent);
+      
+      // בדיקה שיש תוצאות עם ציון התאמה גבוה מספיק
+      const relevantSources = previousTicketSources.filter(source => source.relevance_score >= 0.8);
+      
+      if (relevantSources.length > 0) {
+        // מיון המקורות לפי ציון התאמה
+        relevantSources.sort((a, b) => b.relevance_score - a.relevance_score);
+        
+        // לקיחת הפתרון הטוב ביותר
+        const bestSource = relevantSources[0];
+        
+        setSolution(bestSource.content);
+        setEnhancedSolutionSources(relevantSources);
+        setEnhancedSolutionConfidence(bestSource.relevance_score);
+        setEditingSolution(true);
+        
+        // הצגת הפתרון האוטומטי
+        setAutoSolution(bestSource.content);
+        setSolutionGenerated(true);
+        setShowAutoSolution(true);
+        
+        toast.success('נמצא פתרון דומה מקריאות קודמות');
+      } else {
+        // אם אין תוצאות מתאימות
+        toast.info('לא נמצאו פתרונות דומים מספיק מקריאות קודמות');
+      }
+    } catch (error) {
+      console.error('Failed to search similar solutions:', error);
+      toast.error('לא הצלחנו למצוא פתרון דומה מקריאות קודמות');
+    } finally {
+      setSearchingSolutions(false);
+    }
+  };
+  
+  /**
+   * חיפוש פתרון ממאגר הידע
+   */
+  const handleSearchKnowledgeBase = async () => {
+    if (!currentTicket) return;
+    
+    setSearchingKnowledgeBase(true);
+    try {
+      const solution = await knowledgeBaseService.generateAutoSolution(
+        currentTicket.id, 
+        `${currentTicket.title}\n${currentTicket.description}`
+      );
+      
+      // בדיקה שציון ההתאמה גבוה מספיק (מעל 0.8)
+      if (solution && solution.confidence_score >= 0.8) {
+        setAutoSolution(solution.solution_content);
+        setSolutionGenerated(true);
+        setShowAutoSolution(true);
+        toast.success('נמצא פתרון ממאגר הידע');
+      } else {
+        // אם הציון נמוך מדי או לא נמצא פתרון
+        toast.info('לא נמצאו פתרונות מתאימים מספיק במאגר הידע');
+      }
+    } catch (error) {
+      console.error('Failed to search knowledge base:', error);
+      toast.error('לא הצלחנו למצוא פתרון ממאגר הידע');
+    } finally {
+      setSearchingKnowledgeBase(false);
+    }
+  };
+  
+  /**
+   * שמירת פתרון שנכתב על ידי הנציג
+   */
+  const handleSaveAgentSolution = async () => {
+    if (!currentTicket || !agentSolution.trim()) return;
+    
+    setSavingSolution(true);
+    try {
+      // שמירת הפתרון בסופרבייס באמצעות שירות הפתרונות המשולב
+      await enhancedSolutionService.saveSolutionForLearning(currentTicket.id, agentSolution);
+      
+      // עדכון הפתרון המקומי
+      setAutoSolution(agentSolution);
+      setSolutionGenerated(true);
+      setShowAutoSolution(true);
+      setEditingSolution(false);
+      
+      toast.success('הפתרון נשמר בהצלחה');
+    } catch (error) {
+      console.error('Failed to save agent solution:', error);
+      toast.error('לא הצלחנו לשמור את הפתרון');
+    } finally {
+      setSavingSolution(false);
+    }
+  };
+
   const handleSendMessage = async () => {
     if (!currentTicket || !newMessage.trim()) return;
 
@@ -759,6 +881,61 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
 
                  {/* Auto Solution */}
                  <div className="flex-shrink-0">
+                   {/* כפתורים לחיפוש פתרונות - מוצגים תמיד */}
+                   <div className="p-4 bg-white border-b border-gray-200">
+                     <div className="space-y-2">
+                       {/* כפתור לחיפוש במאגר ידע */}
+                       <button
+                         onClick={handleSearchKnowledgeBase}
+                         disabled={searchingKnowledgeBase || solutionLoading}
+                         className="w-full p-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 space-x-reverse disabled:opacity-50"
+                       >
+                         {searchingKnowledgeBase ? (
+                           <>
+                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                             <span>מחפש במאגר הידע...</span>
+                           </>
+                         ) : (
+                           <>
+                             <DocumentTextIcon className="h-4 w-4 ml-1" />
+                             <span>חפש פתרון במאגר הידע</span>
+                           </>
+                         )}
+                       </button>
+                       
+                       {/* כפתור לחיפוש בקריאות דומות */}
+                       <button
+                         onClick={handleSearchSimilarSolutions}
+                         disabled={searchingSolutions || solutionLoading}
+                         className="w-full p-2 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2 space-x-reverse disabled:opacity-50"
+                       >
+                         {searchingSolutions ? (
+                           <>
+                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                             <span>מחפש בקריאות קודמות...</span>
+                           </>
+                         ) : (
+                           <>
+                             <ChartBarIcon className="h-4 w-4 ml-1" />
+                             <span>חפש פתרון מקריאות דומות</span>
+                           </>
+                         )}
+                       </button>
+                       
+                       {/* כפתור לרישום פתרון ידני */}
+                       <button
+                         onClick={() => {
+                           setEditingSolution(true);
+                           setAgentSolution('');
+                         }}
+                         className="w-full p-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 space-x-reverse"
+                       >
+                         <PencilIcon className="h-4 w-4 ml-1" />
+                         <span>רשום פתרון ידני</span>
+                       </button>
+                     </div>
+                   </div>
+                   
                    {(autoSolution || solutionLoading) && (
                      <div className="p-4 bg-white border-b border-gray-200">
                      <div className="flex justify-between items-center mb-3">
@@ -802,29 +979,84 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                               className="flex-1 text-center p-2 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                             >
                               השתמש בפתרון זה
-                            </button>
-                            <button
-                              onClick={() => {
-                                const plainText = autoSolution.replace(/<[^>]*>/g, '');
-                                navigator.clipboard.writeText(plainText);
-                                toast.success('הפתרון הועתק ללוח');
-                              }}
-                              className="px-3 py-2 text-sm text-purple-600 border border-purple-600 rounded hover:bg-purple-50 transition-colors"
-                            >
-                              העתק
-                            </button>
-                             <button
-                               onClick={regenerateAutoSolution}
-                               disabled={regeneratingSolution}
-                               className="px-3 py-2 text-xs text-purple-600 border border-purple-600 rounded hover:bg-purple-50 transition-colors disabled:opacity-50"
-                             >
-                               {regeneratingSolution ? 'מייצר מחדש...' : 'ייצר מחדש'}
                              </button>
-                          </div>
-                       </div>
-                     ) : null}
-                     </div>
-                   )}
+                             <button
+                               onClick={() => {
+                                 const plainText = autoSolution.replace(/<[^>]*>/g, '');
+                                 navigator.clipboard.writeText(plainText);
+                                 toast.success('הפתרון הועתק ללוח');
+                               }}
+                               className="px-3 py-2 text-sm text-purple-600 border border-purple-600 rounded hover:bg-purple-50 transition-colors"
+                             >
+                               העתק
+                             </button>
+                              <button
+                                onClick={regenerateAutoSolution}
+                                disabled={regeneratingSolution}
+                                className="px-3 py-2 text-xs text-purple-600 border border-purple-600 rounded hover:bg-purple-50 transition-colors disabled:opacity-50"
+                              >
+                                {regeneratingSolution ? 'מייצר מחדש...' : 'ייצר מחדש'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingSolution(true);
+                                  setAgentSolution(autoSolution || '');
+                                }}
+                                className="px-3 py-2 text-xs text-green-600 border border-green-600 rounded hover:bg-green-50 transition-colors"
+                              >
+                                <PencilIcon className="h-3 w-3 inline ml-1" />
+                                ערוך
+                              </button>
+                           </div>
+                        </div>
+                      ) : null}
+                      </div>
+                    )}
+                    
+                    {/* עריכת פתרון על ידי הנציג */}
+                    {editingSolution && (
+                      <div className="p-4 bg-white border-b border-gray-200">
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="text-sm font-medium text-gray-900 flex items-center">
+                            <PencilIcon className="h-4 w-4 ml-1 text-green-600" />
+                            רישום פתרון על ידי הנציג
+                          </h4>
+                        </div>
+                        
+                        <div className="mb-3">
+                          <textarea
+                            value={agentSolution}
+                            onChange={(e) => setAgentSolution(e.target.value)}
+                            placeholder="רשום כאן את הפתרון לבעיה..."
+                            className="w-full p-3 border border-gray-300 rounded-lg text-sm text-right resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                            rows={6}
+                          />
+                        </div>
+                        
+                        <div className="flex space-x-2 space-x-reverse">
+                          <button
+                            onClick={handleSaveAgentSolution}
+                            disabled={savingSolution || !agentSolution.trim()}
+                            className="flex-1 p-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center justify-center disabled:opacity-50"
+                          >
+                            {savingSolution ? (
+                              <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                שומר...
+                              </>
+                            ) : (
+                              'שמור פתרון'
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setEditingSolution(false)}
+                            className="px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100 transition-colors"
+                          >
+                            ביטול
+                          </button>
+                        </div>
+                      </div>
+                    )}
                  </div>
 
                   {/* Conversation */}

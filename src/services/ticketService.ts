@@ -443,6 +443,105 @@ class TicketService {
     return replies;
   }
 
+  /**
+   * חישוב זמן פתרון ממוצע לכרטיסים שנפתרו
+   */
+  private async calculateAverageResolutionTime(): Promise<number> {
+    if (!isSupabaseConfigured || !supabase) {
+      // חישוב מדגמי עבור כרטיסים מדומים
+      const resolvedMockTickets = mockTickets.filter(t => t.status === 'resolved' || t.status === 'closed');
+      if (resolvedMockTickets.length === 0) return 0;
+      
+      const totalHours = resolvedMockTickets.reduce((sum, ticket) => {
+        const created = new Date(ticket.created_at);
+        const updated = new Date(ticket.updated_at);
+        const diffInHours = (updated.getTime() - created.getTime()) / (1000 * 60 * 60);
+        return sum + diffInHours;
+      }, 0);
+      
+      return totalHours / resolvedMockTickets.length;
+    }
+
+    try {
+      // קבלת כל הכרטיסים שנפתרו ב-30 הימים האחרונים
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data: resolvedTickets, error } = await supabase
+        .from('tickets')
+        .select('created_at, updated_at')
+        .in('status', ['resolved', 'closed'])
+        .gte('updated_at', thirtyDaysAgo.toISOString());
+      
+      if (error) {
+        console.error('Error fetching resolved tickets for time calculation:', error);
+        return 0;
+      }
+      
+      if (!resolvedTickets || resolvedTickets.length === 0) {
+        return 0;
+      }
+      
+      // חישוב זמן פתרון לכל כרטיס
+      const totalResolutionTimeHours = resolvedTickets.reduce((sum, ticket) => {
+        const createdAt = new Date(ticket.created_at);
+        const resolvedAt = new Date(ticket.updated_at);
+        const resolutionTimeMs = resolvedAt.getTime() - createdAt.getTime();
+        const resolutionTimeHours = resolutionTimeMs / (1000 * 60 * 60); // המרה לשעות
+        return sum + resolutionTimeHours;
+      }, 0);
+      
+      const averageResolutionTime = totalResolutionTimeHours / resolvedTickets.length;
+      return Math.round(averageResolutionTime * 100) / 100; // עיגול ל-2 מקומות אחרי הנקודה
+    } catch (error) {
+      console.error('Error calculating average resolution time:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * חישוב ציון שביעות רצון ממוצע
+   */
+  private async calculateSatisfactionScore(): Promise<number> {
+    if (!isSupabaseConfigured || !supabase) {
+      // חישוב מדגמי בהתבסס על סנטימנט
+      const sentimentScores = mockTickets.map(t => t.sentiment_score);
+      if (sentimentScores.length === 0) return 4.0;
+      
+      // המרה מסיזון סנטימנט (-1 עד 1) לציון שביעות רצון (1 עד 5)
+      const avgSentiment = sentimentScores.reduce((sum, score) => sum + score, 0) / sentimentScores.length;
+      const satisfactionScore = ((avgSentiment + 1) / 2) * 4 + 1; // המרה לטווח 1-5
+      return Math.round(satisfactionScore * 10) / 10;
+    }
+
+    try {
+      const { data: tickets, error } = await supabase
+        .from('tickets')
+        .select('sentiment_score')
+        .not('sentiment_score', 'is', null);
+      
+      if (error || !tickets || tickets.length === 0) {
+        return 4.0; // ברירת מחדל
+      }
+      
+      const avgSentiment = tickets.reduce((sum, ticket) => sum + (ticket.sentiment_score || 0), 0) / tickets.length;
+      const satisfactionScore = ((avgSentiment + 1) / 2) * 4 + 1;
+      return Math.round(satisfactionScore * 10) / 10;
+    } catch (error) {
+      console.error('Error calculating satisfaction score:', error);
+      return 4.0;
+    }
+  }
+
+  /**
+   * חישוב דיוק בינה מלאכותית
+   */
+  private async calculateAIAccuracy(): Promise<number> {
+    // לעת הזו נחזיר ציון מדומה
+    // במערכת אמיתית, זה יחושב על בסיס השוואה בין תחזיות AI לתוצאות אמיתיות
+    return 0.87;
+  }
+
   async getDashboardStats(): Promise<{
     total_tickets: number;
     open_tickets: number;
@@ -454,15 +553,22 @@ class TicketService {
     ai_accuracy: number;
   }> {
     if (!isSupabaseConfigured || !supabase) {
+      const avgResolutionTime = await this.calculateAverageResolutionTime();
+      const satisfactionScore = await this.calculateSatisfactionScore();
+      
       return {
         total_tickets: mockTickets.length,
         open_tickets: mockTickets.filter(t => t.status === 'open').length,
         in_progress_tickets: mockTickets.filter(t => t.status === 'in_progress').length,
-        resolved_today: 3,
-        avg_response_time: 2.5,
-        satisfaction_score: 4.2,
+        resolved_today: mockTickets.filter(t => {
+          const today = new Date().toDateString();
+          const ticketDate = new Date(t.updated_at).toDateString();
+          return (t.status === 'resolved' || t.status === 'closed') && ticketDate === today;
+        }).length,
+        avg_response_time: avgResolutionTime,
+        satisfaction_score: satisfactionScore,
         high_risk_tickets: mockTickets.filter(t => t.risk_level === 'high').length,
-        ai_accuracy: 0.89
+        ai_accuracy: await this.calculateAIAccuracy()
       };
     }
 
@@ -473,13 +579,17 @@ class TicketService {
       openTickets,
       inProgressTickets,
       resolvedToday,
-      highRiskTickets
+      highRiskTickets,
+      avgResolutionTime,
+      satisfactionScore
     ] = await Promise.all([
       supabase.from('tickets').select('id', { count: 'exact' }),
       supabase.from('tickets').select('id', { count: 'exact' }).eq('status', 'open'),
       supabase.from('tickets').select('id', { count: 'exact' }).eq('status', 'in_progress'),
-      supabase.from('tickets').select('id', { count: 'exact' }).eq('status', 'resolved').gte('updated_at', `${today}T00:00:00`),
-      supabase.from('tickets').select('id', { count: 'exact' }).eq('risk_level', 'high')
+      supabase.from('tickets').select('id', { count: 'exact' }).in('status', ['resolved', 'closed']).gte('updated_at', `${today}T00:00:00`),
+      supabase.from('tickets').select('id', { count: 'exact' }).eq('risk_level', 'high'),
+      this.calculateAverageResolutionTime(),
+      this.calculateSatisfactionScore()
     ]);
 
     return {
@@ -487,10 +597,10 @@ class TicketService {
       open_tickets: openTickets.count || 0,
       in_progress_tickets: inProgressTickets.count || 0,
       resolved_today: resolvedToday.count || 0,
-      avg_response_time: 2.5, // hours - would calculate from actual data
-      satisfaction_score: 4.2, // out of 5 - would calculate from feedback
+      avg_response_time: avgResolutionTime,
+      satisfaction_score: satisfactionScore,
       high_risk_tickets: highRiskTickets.count || 0,
-      ai_accuracy: 0.89 // would calculate from AI predictions vs actual outcomes
+      ai_accuracy: await this.calculateAIAccuracy()
     };
   }
 

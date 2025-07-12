@@ -25,6 +25,7 @@ export interface Ticket {
   risk_level: 'low' | 'medium' | 'high';
   ai_summary?: string;
   suggested_replies?: string[];
+  solution?: string; // Solution provided by the agent
   agent_actions?: string | AgentAction[]; // Support both string (legacy) and array of actions
   conversation: Message[];
 }

@@ -2,13 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
+  ArrowPathIcon, 
+  ChatBubbleLeftRightIcon, 
+  CheckBadgeIcon, 
   ClockIcon, 
-  TagIcon, 
-  ChatBubbleLeftRightIcon,
-  PaperAirplaneIcon,
-  ArrowPathIcon,
-  ExclamationTriangleIcon,
-  CheckBadgeIcon
+  DocumentTextIcon,
+  ExclamationTriangleIcon, 
+  InboxIcon,
+  PaperAirplaneIcon, 
+  PencilSquareIcon,
+  BuildingOfficeIcon,
+  ArrowLeftIcon,
+  TagIcon 
 } from '@heroicons/react/24/outline';
 import { ticketService } from '../services/ticketService';
 import { Ticket, Message } from '../types';
@@ -114,12 +119,18 @@ export function CustomerTicketView() {
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
-          className="flex flex-col items-center space-y-6 p-10 bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/20">
+          className="flex flex-col items-center space-y-6 p-10 bg-white/90 backdrop-blur-sm rounded-2xl shadow-2xl border border-white/30">
           <div className="relative">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full blur-lg opacity-20"></div>
             <ArrowPathIcon className="h-12 w-12 text-blue-600 animate-spin relative z-10" />
           </div>
           <span className="text-slate-700 font-semibold text-lg">טוען את פרטי הכרטיס...</span>
+          <motion.div 
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+            className="text-sm text-slate-500">
+            אנא המתן...
+          </motion.div>
         </motion.div>
       </div>
     );
@@ -197,51 +208,59 @@ export function CustomerTicketView() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="max-w-4xl mx-auto bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border border-white/20">
+        className="max-w-4xl mx-auto bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border border-white/30">
         {/* כותרת הכרטיס */}
-        <div className="px-8 py-8 sm:px-10 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-blue-200/50">
+        <div className="px-8 py-8 sm:px-10 bg-gradient-to-r from-blue-100 via-indigo-50 to-purple-50 border-b border-blue-200/50">
           <div className="flex justify-between items-center flex-wrap gap-4">
-            <h3 className="text-2xl leading-tight font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
+            <h3 className="text-2xl leading-tight font-bold text-slate-800">
               {ticket?.title}
             </h3>
-            <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold shadow-lg ${getStatusColor(ticket?.status || '')}`}>
+            <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold shadow-md ${getStatusColor(ticket?.status || '')}`}>
               {ticket?.status}
             </span>
           </div>
           <p className="mt-3 max-w-2xl text-sm text-slate-600 flex items-center">
-            <CheckBadgeIcon className="h-5 w-5 mr-2 text-blue-500" /> מספר כרטיס: {ticket?.id}
+            <CheckBadgeIcon className="h-5 w-5 ml-2 text-blue-500" /> מספר כרטיס: {ticket?.id}
           </p>
         </div>
         
         {/* פרטי הכרטיס */}
         <div className="px-8 py-8 sm:p-10">
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div className="bg-gradient-to-r from-slate-50 to-blue-50 p-6 rounded-2xl border border-slate-200/50 shadow-lg">
+            <div className="bg-gradient-to-r from-slate-50 to-blue-50 p-6 rounded-2xl border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300">
+              <h5 className="text-lg font-semibold text-slate-800 mb-4 pb-2 border-b border-blue-100">מידע זמנים</h5>
               <div className="flex items-center text-sm text-slate-700 mb-3">
-                <ClockIcon className="h-6 w-6 text-blue-600 ml-3" />
+                <ClockIcon className="h-5 w-5 text-blue-600 ml-3" />
                 <span className="font-semibold">נפתח ב:</span> <span className="mr-2">{ticket?.created_at ? formatDate(ticket.created_at) : '-'}</span>
               </div>
               {ticket?.updated_at && (
                 <div className="flex items-center text-sm text-slate-700">
-                  <ClockIcon className="h-6 w-6 text-blue-600 ml-3" />
+                  <ArrowPathIcon className="h-5 w-5 text-blue-600 ml-3" />
                   <span className="font-semibold">עדכון אחרון:</span> <span className="mr-2">{formatDate(ticket.updated_at)}</span>
                 </div>
               )}
             </div>
-            <div className="bg-gradient-to-r from-slate-50 to-indigo-50 p-6 rounded-2xl border border-slate-200/50 shadow-lg">
-              <div className="flex items-center text-sm text-slate-700">
-                <TagIcon className="h-6 w-6 text-indigo-600 ml-3" />
+            <div className="bg-gradient-to-r from-slate-50 to-indigo-50 p-6 rounded-2xl border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300">
+              <h5 className="text-lg font-semibold text-slate-800 mb-4 pb-2 border-b border-indigo-100">פרטי הפנייה</h5>
+              <div className="flex items-center text-sm text-slate-700 mb-3">
+                <TagIcon className="h-5 w-5 text-indigo-600 ml-3" />
                 <span className="font-semibold">קטגוריה:</span> <span className="mr-2">{ticket?.category || '-'}</span>
               </div>
+              {ticket?.company_name && (
+                <div className="flex items-center text-sm text-slate-700">
+                  <BuildingOfficeIcon className="h-5 w-5 text-indigo-600 ml-3" />
+                  <span className="font-semibold">חברה:</span> <span className="mr-2">{ticket.company_name}</span>
+                </div>
+              )}
             </div>
           </div>
           
-          <div className="mt-10">
-            <h4 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
-              <ChatBubbleLeftRightIcon className="h-6 w-6 ml-3 text-blue-600" />
+          <div className="mt-8">
+            <h4 className="text-xl font-bold text-slate-800 mb-4 flex items-center bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+              <DocumentTextIcon className="h-6 w-6 ml-3 text-blue-600" />
               תיאור הפנייה:
             </h4>
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl text-slate-700 whitespace-pre-wrap border border-blue-200/50 shadow-lg leading-relaxed">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl text-slate-700 whitespace-pre-wrap border border-blue-200/50 shadow-lg leading-relaxed hover:shadow-xl transition-all duration-300">
               {ticket?.description || 'אין תיאור'}
             </div>
           </div>
@@ -249,12 +268,12 @@ export function CustomerTicketView() {
         
         {/* שיחה */}
         <div className="mt-12 border-t border-slate-200/50 pt-10 px-8 sm:px-10">
-          <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+          <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
             <ChatBubbleLeftRightIcon className="h-7 w-7 ml-3 text-blue-600" />
             שיחה
           </h3>
           
-          <div className="mt-6 space-y-6 max-h-96 overflow-y-auto p-4 rounded-2xl bg-gradient-to-b from-slate-50/50 to-white/50">
+          <div className="mt-6 space-y-6 max-h-[450px] overflow-y-auto p-6 rounded-2xl bg-gradient-to-b from-slate-50/50 to-white/50 border border-slate-100 shadow-inner">
             {ticket.conversation && ticket.conversation.length > 0 ? (
               ticket.conversation.map((message: Message, index) => (
                 <motion.div 
@@ -265,16 +284,19 @@ export function CustomerTicketView() {
                   className={`flex ${message.sender === 'customer' ? 'justify-start' : 'justify-end'}`}
                 >
                   <div 
-                    className={`rounded-2xl px-6 py-4 max-w-[85%] shadow-lg backdrop-blur-sm ${
+                    className={`rounded-2xl px-6 py-4 max-w-[85%] shadow-lg backdrop-blur-sm hover:shadow-xl transition-all duration-300 ${
                       message.sender === 'customer' 
-                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-900 border border-blue-200/50' 
+                        ? 'bg-gradient-to-r from-blue-100 to-indigo-50 text-blue-900 border border-blue-200/50' 
                         : message.sender === 'system'
-                          ? 'bg-gradient-to-r from-slate-50 to-gray-50 text-slate-800 border border-slate-200/50'
-                          : 'bg-gradient-to-r from-emerald-50 to-green-50 text-green-900 border border-green-200/50'
+                          ? 'bg-gradient-to-r from-slate-100 to-gray-50 text-slate-800 border border-slate-200/50'
+                          : 'bg-gradient-to-r from-emerald-100 to-green-50 text-green-900 border border-green-200/50'
                     }`}
                   >
-                    <div className="text-xs font-semibold text-slate-500 mb-2">
-                      {message.sender_name || (message.sender === 'customer' ? 'אתה' : 'נציג תמיכה')} • {formatDate(message.created_at)}
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-2 border-b border-slate-200/50 pb-1">
+                      <span className="font-bold">
+                        {message.sender_name || (message.sender === 'customer' ? 'אתה' : 'נציג תמיכה')}
+                      </span>
+                      <span className="mr-3">{formatDate(message.created_at)}</span>
                     </div>
                     <div className="text-sm whitespace-pre-wrap leading-relaxed">
                       {message.sender === 'agent' ? 
@@ -319,8 +341,10 @@ export function CustomerTicketView() {
                 </motion.div>
               ))
             ) : (
-              <div className="text-center py-12 text-slate-500 bg-gradient-to-r from-slate-50 to-gray-50 rounded-2xl border border-slate-200/50 shadow-lg">
-                אין הודעות בשיחה זו עדיין
+              <div className="text-center py-12 text-slate-500 bg-gradient-to-r from-slate-100 to-gray-50 rounded-2xl border border-slate-200/50 shadow-lg">
+                <InboxIcon className="h-12 w-12 mx-auto text-slate-400 mb-4" />
+                <p>אין הודעות בשיחה זו עדיין</p>
+                <p className="text-xs mt-2 text-slate-400">הודעות חדשות יופיעו כאן</p>
               </div>
             )}
             {ticket.status !== 'closed' && (
@@ -329,7 +353,11 @@ export function CustomerTicketView() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
                 onSubmit={handleSendMessage} 
-                className="mt-10 p-6 bg-gradient-to-r from-white to-slate-50 rounded-2xl border border-slate-200/50 shadow-lg">
+                className="mt-10 p-6 bg-gradient-to-r from-white to-blue-50 rounded-2xl border border-blue-100/50 shadow-lg hover:shadow-xl transition-all duration-300">
+                <h4 className="text-lg font-semibold text-slate-700 mb-4 flex items-center">
+                  <PencilSquareIcon className="h-5 w-5 ml-2 text-blue-600" />
+                  הוסף הודעה חדשה
+                </h4>
                 <div className="flex gap-4">
                   <div className="flex-grow">
                     <textarea
@@ -343,7 +371,7 @@ export function CustomerTicketView() {
                       disabled={sendingMessage}
                     />
                   </div>
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 self-end">
                     <motion.button
                       whileHover={{ scale: 1.05, y: -1 }}
                       whileTap={{ scale: 0.95 }}
@@ -377,11 +405,20 @@ export function CustomerTicketView() {
                 whileHover={{ scale: 1.05, y: -1 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => navigate('/customer')}
-                className="inline-flex items-center px-8 py-3 border border-slate-300 shadow-lg text-sm font-semibold rounded-xl text-slate-700 bg-white/80 backdrop-blur-sm hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:shadow-xl"
+                className="inline-flex items-center px-8 py-3 border border-slate-300 shadow-lg text-sm font-semibold rounded-xl text-slate-700 bg-white/90 backdrop-blur-sm hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:shadow-xl"
               >
+                <ArrowLeftIcon className="h-5 w-5 ml-2" />
                 חזרה לדף הראשי
               </motion.button>
             </div>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="text-center text-xs text-slate-500 mt-6"
+            >
+              <p>OptiSupport &copy; {new Date().getFullYear()} - מערכת תמיכת לקוחות</p>
+            </motion.div>
           </div>
         </div>
       </motion.div>

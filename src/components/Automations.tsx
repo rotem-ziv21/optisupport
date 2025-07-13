@@ -107,25 +107,60 @@ export function Automations() {
   };
 
   const handleSaveAutomation = async (automationData: any) => {
+    console.log('DEBUG - handleSaveAutomation called with data:', JSON.stringify(automationData));
     try {
       if (isCreating) {
+        console.log('DEBUG - Creating new automation');
+        // וודא שיש id לטריגר ולפעולות
+        if (automationData.trigger && !automationData.trigger.id) {
+          automationData.trigger.id = `trigger-${Date.now()}`;
+        }
+        
+        if (automationData.actions) {
+          automationData.actions = automationData.actions.map((action: any, index: number) => {
+            if (!action.id) {
+              return { ...action, id: `action-${Date.now()}-${index}` };
+            }
+            return action;
+          });
+        }
+        
         const newAutomation = await automationService.createAutomation(automationData);
+        console.log('DEBUG - New automation created:', JSON.stringify(newAutomation));
         setAutomations([...automations, newAutomation]);
         toast.success('האוטומציה נוצרה בהצלחה');
       } else if (currentAutomation) {
+        console.log('DEBUG - Updating automation with ID:', currentAutomation.id);
+        // וודא שיש id לטריגר ולפעולות
+        if (automationData.trigger && !automationData.trigger.id) {
+          automationData.trigger.id = currentAutomation.trigger?.id || `trigger-${Date.now()}`;
+        }
+        
+        if (automationData.actions) {
+          automationData.actions = automationData.actions.map((action: any, index: number) => {
+            if (!action.id) {
+              // נסה למצוא פעולה מקבילה בנתונים הקיימים
+              const existingAction = currentAutomation.actions[index];
+              return { ...action, id: existingAction?.id || `action-${Date.now()}-${index}` };
+            }
+            return action;
+          });
+        }
+        
         const updatedAutomation = await automationService.updateAutomation(
           currentAutomation.id,
           automationData
         );
+        console.log('DEBUG - Automation updated:', JSON.stringify(updatedAutomation));
         setAutomations(automations.map(a => 
           a.id === updatedAutomation.id ? updatedAutomation : a
         ));
         toast.success('האוטומציה עודכנה בהצלחה');
       }
       setIsModalOpen(false);
-    } catch (error) {
-      console.error('Failed to save automation:', error);
-      toast.error('שגיאה בשמירת האוטומציה');
+    } catch (error: any) {
+      console.error('DEBUG - Failed to save automation:', error);
+      toast.error(`שגיאה בשמירת האוטומציה: ${error.message || 'אנא נסה שוב'}`); 
     }
   };
 

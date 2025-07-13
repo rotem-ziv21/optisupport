@@ -279,11 +279,14 @@ class TicketService {
           // מעבר על כל האוטומציות ובדיקה אם הן מתאימות לטריגר של כרטיס חדש
           let foundMatchingAutomation = false;
           for (const automation of automations) {
-            console.log('DEBUG - Checking automation:', automation.id, 'isActive:', automation.isActive);
+            console.log('DEBUG - Checking automation:', automation.id, 'isActive:', automation.isActive, 'is_active:', automation.is_active);
             console.log('DEBUG - Trigger type:', automation.trigger?.type);
             console.log('DEBUG - Expected type:', TriggerType.TICKET_CREATED);
             
-            if (automation.isActive && automation.trigger && automation.trigger.type === TriggerType.TICKET_CREATED) {
+            // בדיקה אם האוטומציה פעילה - בודקים גם isActive וגם is_active (תלוי במקור הנתונים)
+            const isAutomationActive = automation.isActive === true || automation.is_active === true;
+            
+            if (isAutomationActive && automation.trigger && automation.trigger.type === TriggerType.TICKET_CREATED) {
               foundMatchingAutomation = true;
               console.log('DEBUG - Found active automation with TICKET_CREATED trigger:', automation.id);
               

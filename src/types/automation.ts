@@ -20,9 +20,12 @@ export interface Automation {
   id: string;
   name: string;
   description: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  isActive?: boolean;  // camelCase - משמש בצד הקליינט
+  is_active?: boolean; // snake_case - מגיע מהדאטהבייס
+  createdAt?: string;
+  created_at?: string;
+  updatedAt?: string;
+  updated_at?: string;
   trigger: Trigger;
   actions: Action[];
 }

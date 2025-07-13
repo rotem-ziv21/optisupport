@@ -4,7 +4,7 @@ import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { Automation, Trigger, Action, TriggerType, ActionType } from '../types/automation';
 import { motion } from 'framer-motion';
 
-interface AutomationModalProps {
+export interface AutomationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (automationData: any) => void;
@@ -31,7 +31,8 @@ export default function AutomationModal({
     if (automation) {
       setName(automation.name);
       setDescription(automation.description);
-      setIsActive(automation.isActive);
+      // בדיקה שה-isActive הוא boolean ולא undefined
+      setIsActive(automation.isActive === true || automation.is_active === true);
       setTriggerType(automation.trigger.type);
       setTriggerConditions(automation.trigger.conditions || {});
       setActions(automation.actions);

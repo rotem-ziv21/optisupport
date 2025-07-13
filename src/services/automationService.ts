@@ -5,141 +5,185 @@ import { ticketService } from './ticketService';
 class AutomationService {
   // קבלת כל האוטומציות
   async getAutomations(): Promise<Automation[]> {
+    console.log('DEBUG - getAutomations called');
+    
     // אם סופרבייס לא מוגדר, החזר נתונים לדוגמה
     if (!isSupabaseConfigured || !supabase) {
+      console.log('DEBUG - Supabase not configured, using mock automations');
       return this.getMockAutomations();
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('automations')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw new Error(`Failed to fetch automations: ${error.message}`);
-      }
-
-      return data as Automation[];
-    } catch (error) {
-      console.warn('Supabase connection failed, using mock data:', error);
-      return this.getMockAutomations();
-    }
+    // Always use mock data for automations since tables don't exist in Supabase
+    console.log('DEBUG - Using mock automations (automation tables not implemented in DB)');
+    return this.getMockAutomations();
   }
 
   // קבלת אוטומציה לפי מזהה
   async getAutomation(id: string): Promise<Automation | null> {
-    // אם סופרבייס לא מוגדר, החזר נתונים לדוגמה
-    if (!isSupabaseConfigured || !supabase) {
-      const mockAutomations = this.getMockAutomations();
-      return mockAutomations.find(automation => automation.id === id) || null;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('automations')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) {
-        throw new Error(`Failed to fetch automation: ${error.message}`);
-      }
-
-      return data as Automation;
-    } catch (error) {
-      console.warn('Supabase connection failed, using mock data:', error);
-      const mockAutomations = this.getMockAutomations();
-      return mockAutomations.find(automation => automation.id === id) || null;
-    }
+    console.log('DEBUG - getAutomation called for ID:', id);
+  
+    // Always use mock data for automations since tables don't exist in Supabase
+    console.log('DEBUG - Using mock automation data (automation tables not implemented in DB)');
+    const mockAutomations = this.getMockAutomations();
+    const mockAutomation = mockAutomations.find(automation => automation.id === id) || null;
+    console.log('DEBUG - Found mock automation:', mockAutomation ? 'yes' : 'no');
+    return mockAutomation;
   }
 
   // יצירת אוטומציה חדשה
   async createAutomation(automationData: Omit<Automation, 'id' | 'createdAt' | 'updatedAt'>): Promise<Automation> {
-    // אם סופרבייס לא מוגדר, החזר נתונים לדוגמה
-    if (!isSupabaseConfigured || !supabase) {
-      const newAutomation: Automation = {
-        ...automationData,
-        id: Math.random().toString(36).substring(2, 11),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      return newAutomation;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('automations')
-        .insert([{
-          name: automationData.name,
-          description: automationData.description,
-          is_active: automationData.isActive,
-          trigger: automationData.trigger,
-          actions: automationData.actions,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        throw new Error(`Failed to create automation: ${error.message}`);
-      }
-
-      return data as Automation;
-    } catch (error) {
-      console.warn('Supabase connection failed:', error);
-      throw new Error('Failed to create automation');
-    }
+    console.log('DEBUG - createAutomation called with data:', JSON.stringify(automationData));
+  
+    // Always create mock automation since automation tables don't exist in Supabase
+    console.log('DEBUG - Creating mock automation (automation tables not implemented in DB)');
+    const newId = `auto-${Date.now()}`;
+    
+    // וודא שיש id לטריגר ולפעולות
+    const trigger = {
+      ...automationData.trigger,
+      id: automationData.trigger.id || `trigger-${Date.now()}`
+    };
+    
+    const actions = automationData.actions.map((action, index) => ({
+      ...action,
+      id: action.id || `action-${Date.now()}-${index}`
+    }));
+    
+    const newAutomation: Automation = {
+      ...automationData,
+      id: newId,
+      trigger,
+      actions,
+      isActive: automationData.isActive !== undefined ? automationData.isActive : true,
+      is_active: automationData.isActive !== undefined ? automationData.isActive : true,
+      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    
+    console.log('DEBUG - Created mock automation:', JSON.stringify(newAutomation));
+    return newAutomation;
   }
 
   // עדכון אוטומציה קיימת
   async updateAutomation(id: string, automationData: Partial<Automation>): Promise<Automation> {
+    console.log('DEBUG - updateAutomation called with ID:', id);
+    console.log('DEBUG - automationData:', JSON.stringify(automationData));
+  
     // אם סופרבייס לא מוגדר, החזר נתונים לדוגמה
     if (!isSupabaseConfigured || !supabase) {
+      console.log('DEBUG - Supabase not configured, using mock data');
       const mockAutomations = this.getMockAutomations();
       const automationIndex = mockAutomations.findIndex(automation => automation.id === id);
       if (automationIndex === -1) {
+        console.error('DEBUG - Automation not found with ID:', id);
         throw new Error('Automation not found');
       }
-      
+    
       const updatedAutomation: Automation = {
         ...mockAutomations[automationIndex],
         ...automationData,
         updatedAt: new Date().toISOString(),
       };
-      
+    
+      console.log('DEBUG - Mock automation updated successfully');
       return updatedAutomation;
     }
 
     try {
-      // המרה מ-camelCase ל-snake_case
-      const updateData: any = {
+      console.log('DEBUG - Updating automation in Supabase with ID:', id);
+    
+      // בדיקה אם האוטומציה קיימת
+      const { data: existingData, error: fetchError } = await supabase
+        .from('automations')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (fetchError) {
+        console.error('DEBUG - Error fetching existing automation:', fetchError.message);
+        throw new Error(`Automation not found: ${fetchError.message}`);
+      }
+    
+      if (!existingData) {
+        console.error('DEBUG - No automation found with ID:', id);
+        throw new Error('Automation not found');
+      }
+    
+      console.log('DEBUG - Existing automation data:', JSON.stringify(existingData));
+    
+      // המרה מ-camelCase ל-snake_case והכנת הנתונים לעדכון
+      const updateData: Record<string, any> = {
         updated_at: new Date().toISOString()
       };
-      
-      // המרה ידנית של השדות
+    
+      // המרה ידנית של השדות הבסיסיים
       if (automationData.name !== undefined) updateData.name = automationData.name;
       if (automationData.description !== undefined) updateData.description = automationData.description;
       if (automationData.isActive !== undefined) updateData.is_active = automationData.isActive;
-      if (automationData.trigger !== undefined) updateData.trigger = automationData.trigger;
-      if (automationData.actions !== undefined) updateData.actions = automationData.actions;
-      
+    
+      // טיפול מיוחד בטריגר
+      if (automationData.trigger) {
+        // וודא שיש id לטריגר
+        const trigger = {
+          ...automationData.trigger,
+          id: automationData.trigger.id || existingData.trigger?.id || `trigger-${Date.now()}`
+        };
+        updateData.trigger = trigger;
+      }
+    
+      // טיפול מיוחד בפעולות
+      if (automationData.actions) {
+        // וודא שיש id לכל פעולה
+        const actions = automationData.actions.map((action, index) => ({
+          ...action,
+          id: action.id || `action-${Date.now()}-${index}`
+        }));
+        updateData.actions = actions;
+      }
+    
+      console.log('DEBUG - Update data prepared:', JSON.stringify(updateData));
+    
+      // שליחת העדכון לסופרבייס
       const { data, error } = await supabase
         .from('automations')
         .update(updateData)
         .eq('id', id)
-        .select()
+        .select('*, trigger(*), actions(*)')
         .single();
 
       if (error) {
+        console.error('DEBUG - Error updating automation:', error.message, error.details, error.hint);
         throw new Error(`Failed to update automation: ${error.message}`);
       }
 
-      return data as Automation;
-    } catch (error) {
-      console.warn('Supabase connection failed:', error);
-      throw new Error('Failed to update automation');
+      if (!data) {
+        console.error('DEBUG - No data returned after update');
+        throw new Error('Failed to update automation: No data returned');
+      }
+    
+      console.log('DEBUG - Automation updated successfully:', JSON.stringify(data));
+    
+      // המרת שדות snake_case ל-camelCase לצורך תאימות עם הממשק
+      const processedAutomation: Automation = {
+        id: data.id,
+        name: data.name,
+        description: data.description || '',
+        isActive: data.is_active, // המרה מ-snake_case ל-camelCase
+        is_active: data.is_active, // שמירה גם על השדה המקורי
+        createdAt: data.created_at,
+        created_at: data.created_at,
+        updatedAt: data.updated_at,
+        updated_at: data.updated_at,
+        trigger: data.trigger,
+        actions: data.actions || [],
+      };
+
+      return processedAutomation;
+    } catch (error: any) {
+      console.error('DEBUG - Supabase connection failed:', error);
+      throw new Error(`Failed to update automation: ${error.message || error}`);
     }
   }
 
@@ -168,24 +212,52 @@ class AutomationService {
   // הפעלת אוטומציה באופן ידני
   async triggerAutomation(id: string, context: Record<string, any> = {}): Promise<boolean> {
     try {
+      console.log('DEBUG - triggerAutomation called for automation ID:', id);
+      console.log('DEBUG - Context received:', JSON.stringify(context));
+      
       const automation = await this.getAutomation(id);
-      if (!automation || !automation.isActive) {
+      if (!automation) {
+        console.log('DEBUG - Automation not found with ID:', id);
         return false;
+      }
+      
+      // בדיקה אם האוטומציה פעילה - בודקים גם isActive וגם is_active
+      const isAutomationActive = automation.isActive === true || automation.is_active === true;
+      if (!isAutomationActive) {
+        console.log('DEBUG - Automation is not active:', id);
+        return false;
+      }
+      
+      // הוספת שדה event לקונטקסט בהתאם לסוג הטריגר
+      if (automation.trigger && !context.event) {
+        if (automation.trigger.type === TriggerType.TICKET_CREATED) {
+          context.event = 'ticket_created';
+        } else if (automation.trigger.type === TriggerType.TICKET_UPDATED) {
+          context.event = 'ticket_updated';
+        } else if (automation.trigger.type === TriggerType.MESSAGE_RECEIVED) {
+          context.event = 'message_received';
+        }
+        console.log('DEBUG - Added event to context:', context.event);
       }
 
       // בדיקת תנאי הטריגר
       if (!this.evaluateTriggerConditions(automation.trigger, context)) {
+        console.log('DEBUG - Trigger conditions not met for automation:', id);
         return false;
       }
+      
+      console.log('DEBUG - Trigger conditions met, executing actions for automation:', id);
 
       // הפעלת הפעולות
       for (const action of automation.actions) {
+        console.log('DEBUG - Executing action:', action.type, action.name);
         await this.executeAction(action, context);
       }
 
+      console.log('DEBUG - All actions executed successfully for automation:', id);
       return true;
     } catch (error) {
-      console.error('Failed to trigger automation:', error);
+      console.error('DEBUG - Failed to trigger automation:', error);
       return false;
     }
   }

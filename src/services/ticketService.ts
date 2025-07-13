@@ -1,10 +1,11 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { automationService } from './automationService';
 import { TriggerType } from '../types/automation';
 import { Ticket, Message } from '../types';
 import { aiService } from './aiService';
 import { mockTickets } from '../utils/mockData';
 import { knowledgeBaseService } from './knowledgeBaseService';
+// ייבוא המופע היחיד של automationService כייצוא ברירת מחדל
+import automationService from './automationService';
 
 class TicketService {
   // פונקציה ליצירת טוקן ייחודי לכרטיס
@@ -267,46 +268,21 @@ class TicketService {
           conversation: []
         };
         
-        // הפעלת אוטומציות עבור כרטיס חדש
+        // Perform AI analysis on the new ticket
+        try {
+          this.performAIAnalysis(data.id);
+        } catch (analysisError) {
+          console.error('Failed to perform AI analysis:', analysisError);
+          // אל תפסיק את התהליך אם יש שגיאה באנליזה
+        }
+        
+        // הפעלת אוטומציות רלוונטיות לכרטיס חדש
         try {
           console.log('DEBUG - Triggering automations for new ticket:', data.id);
           console.log('DEBUG - Ticket data:', JSON.stringify(newTicket));
-          
-          const automations = await automationService.getAutomations();
-          console.log('DEBUG - Found automations:', automations.length);
-          console.log('DEBUG - Automations details:', JSON.stringify(automations));
-          
-          // מעבר על כל האוטומציות ובדיקה אם הן מתאימות לטריגר של כרטיס חדש
-          let foundMatchingAutomation = false;
-          for (const automation of automations) {
-            console.log('DEBUG - Checking automation:', automation.id, 'isActive:', automation.isActive, 'is_active:', automation.is_active);
-            console.log('DEBUG - Trigger type:', automation.trigger?.type);
-            console.log('DEBUG - Expected type:', TriggerType.TICKET_CREATED);
-            
-            // בדיקה אם האוטומציה פעילה - בודקים גם isActive וגם is_active (תלוי במקור הנתונים)
-            const isAutomationActive = automation.isActive === true || automation.is_active === true;
-            
-            if (isAutomationActive && automation.trigger && automation.trigger.type === TriggerType.TICKET_CREATED) {
-              foundMatchingAutomation = true;
-              console.log('DEBUG - Found active automation with TICKET_CREATED trigger:', automation.id);
-              
-              try {
-                await automationService.triggerAutomation(automation.id, { 
-                  ticketId: data.id,
-                  ticket: newTicket
-                });
-                console.log('DEBUG - Successfully triggered automation:', automation.id);
-              } catch (triggerError) {
-                console.error('DEBUG - Error triggering specific automation:', triggerError);
-              }
-            }
-          }
-          
-          if (!foundMatchingAutomation) {
-            console.log('DEBUG - No matching automations found for TICKET_CREATED trigger');
-          }
+          await this.triggerAutomationsForNewTicket(newTicket);
         } catch (automationError) {
-          console.error('DEBUG - Failed to trigger automations for new ticket:', automationError);
+          console.error('Failed to trigger automations:', automationError);
           // אל תפסיק את התהליך אם יש שגיאה באוטומציות
         }
         
@@ -585,6 +561,98 @@ class TicketService {
     // לעת הזו נחזיר ציון מדומה
     // במערכת אמיתית, זה יחושב על בסיס השוואה בין תחזיות AI לתוצאות אמיתיות
     return 0.87;
+  }
+  
+  /**
+   * הפעלת אוטומציות רלוונטיות לכרטיס חדש
+   * @param ticket הכרטיס החדש שנוצר
+   */
+  private async triggerAutomationsForNewTicket(ticket: Ticket): Promise<void> {
+    console.log('DEBUG - triggerAutomationsForNewTicket called for ticket:', ticket.id);
+    
+    try {
+      // קבלת כל האוטומציות
+      const automations = await automationService.getAutomations();
+      console.log(`DEBUG - Found ${automations.length} total automations`);
+      console.log('DEBUG - Automations details:', JSON.stringify(automations));
+      
+      // סינון אוטומציות פעילות - בודקים גם isActive וגם is_active (תלוי במקור הנתונים)
+      const activeAutomations = automations.filter(automation => {
+        const isActive = automation.isActive === true || automation.is_active === true;
+        console.log(`DEBUG - Automation ${automation.id} active status:`, isActive);
+        return isActive;
+      });
+      
+      console.log(`DEBUG - Found ${activeAutomations.length} active automations to check`);
+      
+      // בדיקה אם יש אוטומציות פעילות
+      if (activeAutomations.length === 0) {
+        console.log('DEBUG - No active automations found, nothing to trigger');
+        return;
+      }
+      
+      // משתנה למעקב אחר אוטומציות מתאימות
+      let foundMatchingAutomation = false;
+      
+      // עבור כל אוטומציה פעילה
+      for (const automation of activeAutomations) {
+        try {
+          console.log('DEBUG - Checking automation:', automation.id, 'name:', automation.name);
+          console.log('DEBUG - Trigger type:', automation.trigger?.type);
+          console.log('DEBUG - Expected type:', TriggerType.TICKET_CREATED);
+          
+          // בדיקה אם הטריגר של האוטומציה הוא יצירת כרטיס
+          // אם אין טריגר מוגדר, נפעיל את האוטומציה בכל מקרה עבור כרטיסים חדשים
+          if (!automation.trigger || !automation.trigger.type || automation.trigger.type === TriggerType.TICKET_CREATED) {
+            foundMatchingAutomation = true;
+            console.log(`DEBUG - Found automation with TICKET_CREATED trigger: ${automation.id} - ${automation.name}`);
+            
+            // יצירת קונטקסט עם פרטי הכרטיס
+            const context = {
+              ticketId: ticket.id,
+              event: 'ticket_created',
+              automationId: automation.id, // הוספת מזהה האוטומציה לקונטקסט
+              ticket: {
+                ...ticket,
+                id: ticket.id,
+                title: ticket.title,
+                description: ticket.description,
+                status: ticket.status,
+                priority: ticket.priority,
+                category: ticket.category,
+                customer_name: ticket.customer_name,
+                customer_email: ticket.customer_email,
+                customer_phone: ticket.customer_phone,
+                company_name: ticket.company_name,
+                created_at: ticket.created_at,
+                updated_at: ticket.updated_at
+              }
+            };
+            
+            // הפעלת האוטומציה עם הקונטקסט
+            console.log(`DEBUG - Triggering automation ${automation.id} for new ticket ${ticket.id}`);
+            console.log('DEBUG - Automation context:', JSON.stringify(context));
+            await automationService.triggerAutomation(automation.id, context);
+            console.log(`DEBUG - Successfully triggered automation ${automation.id}`);
+          } else {
+            console.log(`DEBUG - Automation ${automation.id} does not have TICKET_CREATED trigger, skipping`);
+          }
+        } catch (error) {
+          console.error(`DEBUG - Error triggering automation ${automation.id}:`, error);
+          // המשך לאוטומציה הבאה גם אם יש שגיאה
+        }
+      }
+      
+      // בדיקה אם נמצאה אוטומציה מתאימה
+      if (!foundMatchingAutomation) {
+        console.log('DEBUG - No matching automations found for TICKET_CREATED trigger');
+      }
+      
+      console.log('DEBUG - Finished checking all automations for new ticket');
+    } catch (error) {
+      console.error('DEBUG - Error in triggerAutomationsForNewTicket:', error);
+      throw error;
+    }
   }
 
   async getDashboardStats(): Promise<{

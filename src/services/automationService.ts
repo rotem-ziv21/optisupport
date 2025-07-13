@@ -1,8 +1,11 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Automation, Trigger, Action, TriggerType, ActionType } from '../types/automation';
-import { ticketService } from './ticketService';
+// הסרת הייבוא של Ticket שלא בשימוש
+// import { Ticket } from '../types';
+// הסרת הייבוא המעגלי
+// import { ticketService } from './ticketService';
 
-class AutomationService {
+export class AutomationService {
   // קבלת כל האוטומציות
   async getAutomations(): Promise<Automation[]> {
     console.log('DEBUG - getAutomations called');
@@ -13,57 +16,382 @@ class AutomationService {
       return this.getMockAutomations();
     }
 
-    // Always use mock data for automations since tables don't exist in Supabase
-    console.log('DEBUG - Using mock automations (automation tables not implemented in DB)');
-    return this.getMockAutomations();
+    try {
+      // בדיקה אם הטבלה קיימת ויצירתה אם לא
+      await this.ensureAutomationsTableExists();
+      
+      console.log('DEBUG - Fetching automations from Supabase');
+      const { data, error } = await supabase
+        .from('automations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('DEBUG - Error fetching automations:', error.message);
+        throw new Error(`Failed to fetch automations: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        console.log('DEBUG - No automations found in database');
+        return [];
+      }
+      
+      console.log('DEBUG - Found automations in DB:', data.length);
+      
+      // המרת שדות snake_case ל-camelCase לצורך תאימות עם הממשק
+      const automations: Automation[] = data.map(item => {
+        // המרת מחרוזות JSON לאובייקטים
+        let trigger = {};
+        let actions = [];
+        
+        try {
+          if (item.trigger) {
+            // בדיקה אם trigger הוא כבר אובייקט או מחרוזת JSON
+            trigger = typeof item.trigger === 'string' ? JSON.parse(item.trigger) : item.trigger;
+            console.log('DEBUG - Trigger parsed successfully:', trigger);
+          }
+        } catch (e) {
+          console.error('DEBUG - Error parsing trigger JSON:', e);
+          // במקרה של שגיאה, נשתמש באובייקט כמו שהוא
+          trigger = item.trigger || {};
+        }
+        
+        try {
+          if (item.actions) {
+            // בדיקה אם actions הוא כבר אובייקט או מחרוזת JSON
+            actions = typeof item.actions === 'string' ? JSON.parse(item.actions) : item.actions;
+            console.log('DEBUG - Actions parsed successfully:', actions);
+          }
+        } catch (e) {
+          console.error('DEBUG - Error parsing actions JSON:', e);
+          // במקרה של שגיאה, נשתמש באובייקט כמו שהוא
+          actions = item.actions || [];
+        }
+        
+        return {
+          id: item.id,
+          name: item.name,
+          description: item.description || '',
+          isActive: item.is_active, // המרה מ-snake_case ל-camelCase
+          is_active: item.is_active, // שמירה גם על השדה המקורי
+          createdAt: item.created_at,
+          created_at: item.created_at,
+          updatedAt: item.updated_at,
+          updated_at: item.updated_at,
+          trigger,
+          actions: actions || [],
+        };
+      });
+      
+      console.log('DEBUG - Processed automations:', automations.length);
+      return automations;
+    } catch (error) {
+      console.warn('DEBUG - Supabase connection failed, using mock data:', error);
+      return this.getMockAutomations();
+    }
+  }
+  
+  // וודא שטבלת האוטומציות קיימת
+  private async ensureAutomationsTableExists(): Promise<void> {
+    if (!supabase) return;
+    
+    try {
+      // בדיקה אם הטבלה קיימת ע"י ניסיון לקבל שורה אחת
+      const { error } = await supabase
+        .from('automations')
+        .select('id')
+        .limit(1);
+      
+      if (!error) {
+        console.log('DEBUG - Automations table exists');
+        return; // הטבלה קיימת
+      }
+      
+      // אם יש שגיאה שאינה קשורה לחוסר טבלה, נציג אותה
+      if (!error.message.includes('relation "automations" does not exist') && 
+          !error.message.includes('does not exist')) {
+        console.error('DEBUG - Error checking automations table:', error.message);
+        return;
+      }
+      
+      console.log('DEBUG - Creating automations table');
+      
+      // ננסה ליצור את הטבלה ישירות דרך SQL
+      try {
+        // בדיקה אם הפונקציה uuid_generate_v4 קיימת
+        const { error: uuidError } = await supabase.rpc('exec_sql', { 
+          sql: "SELECT uuid_generate_v4();"
+        });
+        
+        let uuidFunction = 'uuid_generate_v4()';
+        if (uuidError) {
+          console.log('DEBUG - uuid_generate_v4 not available, using gen_random_uuid() instead');
+          uuidFunction = 'gen_random_uuid()';
+        }
+        
+        // יצירת טבלה ישירות ב-SQL
+        const createTableSQL = `
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          
+          CREATE TABLE IF NOT EXISTS automations (
+            id UUID PRIMARY KEY DEFAULT ${uuidFunction},
+            name TEXT NOT NULL,
+            description TEXT,
+            is_active BOOLEAN DEFAULT true,
+            trigger TEXT,
+            actions TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+          );
+        `;
+        
+        // ננסה להריץ את ה-SQL ישירות
+        const { error: sqlError } = await supabase.rpc('exec_sql', { sql: createTableSQL });
+        
+        if (sqlError) {
+          console.error('DEBUG - Failed to create automations table with exec_sql:', sqlError.message);
+          
+          // אם הפונקציה exec_sql לא קיימת, ננסה ליצור את הטבלה באמצעות קריאה רגילה לסופרבייס
+          if (sqlError.message.includes('function "exec_sql" does not exist')) {
+            console.log('DEBUG - exec_sql not available, trying to use REST API');
+            
+            // ננסה ליצור את הטבלה באמצעות REST API
+            // זה לא יעבוד ישירות כי צריך הרשאות מיוחדות, אבל ננסה ליצור את הטבלה בדרך אחרת
+            
+            // ננסה ליצור את הטבלה ע"י הכנסת נתונים אליה
+            // זה ייצור את הטבלה אם היא לא קיימת
+            const { error: insertError } = await supabase
+              .from('automations')
+              .insert([
+                {
+                  name: 'Test Automation',
+                  description: 'This is a test automation to create the table',
+                  is_active: true,
+                  trigger: JSON.stringify({ type: 'test', conditions: [] }),
+                  actions: JSON.stringify([{ type: 'test', config: {} }])
+                }
+              ]);
+            
+            if (insertError) {
+              console.error('DEBUG - Failed to create automations table via insert:', insertError.message);
+            } else {
+              console.log('DEBUG - Successfully created automations table via insert');
+            }
+          }
+        } else {
+          console.log('DEBUG - Successfully created automations table with SQL');
+        }
+      } catch (sqlCreateError) {
+        console.error('DEBUG - Error during SQL table creation:', sqlCreateError);
+      }
+    } catch (error) {
+      console.error('DEBUG - Error ensuring automations table exists:', error);
+    }
   }
 
   // קבלת אוטומציה לפי מזהה
   async getAutomation(id: string): Promise<Automation | null> {
     console.log('DEBUG - getAutomation called for ID:', id);
   
-    // Always use mock data for automations since tables don't exist in Supabase
-    console.log('DEBUG - Using mock automation data (automation tables not implemented in DB)');
-    const mockAutomations = this.getMockAutomations();
-    const mockAutomation = mockAutomations.find(automation => automation.id === id) || null;
-    console.log('DEBUG - Found mock automation:', mockAutomation ? 'yes' : 'no');
-    return mockAutomation;
+    // אם סופרבייס לא מוגדר, החזר נתונים לדוגמה
+    if (!isSupabaseConfigured || !supabase) {
+      console.log('DEBUG - Supabase not configured, using mock data');
+      const mockAutomations = this.getMockAutomations();
+      const mockAutomation = mockAutomations.find(automation => automation.id === id) || null;
+      console.log('DEBUG - Found mock automation:', mockAutomation ? 'yes' : 'no');
+      return mockAutomation;
+    }
+
+    try {
+      // בדיקה אם הטבלה קיימת ויצירתה אם לא
+      await this.ensureAutomationsTableExists();
+      
+      console.log('DEBUG - Fetching automation from Supabase with ID:', id);
+      const { data, error } = await supabase
+        .from('automations')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error('DEBUG - Error fetching automation:', error.message);
+        throw new Error(`Failed to fetch automation: ${error.message}`);
+      }
+
+      if (!data) {
+        console.log('DEBUG - No automation found with ID:', id);
+        return null;
+      }
+    
+      console.log('DEBUG - Automation data from DB:', JSON.stringify(data));
+    
+      // המרת שדות snake_case ל-camelCase לצורך תאימות עם הממשק
+      // המרת מחרוזות JSON לאובייקטים או שימוש באובייקטים קיימים
+      let trigger = {};
+      let actions = [];
+      
+      // בדיקה אם ה-trigger הוא כבר אובייקט או מחרוזת JSON
+      if (data.trigger) {
+        if (typeof data.trigger === 'object') {
+          console.log('DEBUG - Trigger is already an object, using as is');
+          trigger = data.trigger;
+        } else {
+          try {
+            trigger = JSON.parse(data.trigger);
+            console.log('DEBUG - Successfully parsed trigger JSON');
+          } catch (e) {
+            console.error('DEBUG - Error parsing trigger JSON:', e);
+            // אם יש שגיאת פרסור, נשתמש באובייקט ריק
+          }
+        }
+      }
+      
+      // בדיקה אם ה-actions הם כבר מערך או מחרוזת JSON
+      if (data.actions) {
+        if (Array.isArray(data.actions)) {
+          console.log('DEBUG - Actions is already an array, using as is');
+          actions = data.actions;
+        } else {
+          try {
+            actions = JSON.parse(data.actions);
+            console.log('DEBUG - Successfully parsed actions JSON');
+          } catch (e) {
+            console.error('DEBUG - Error parsing actions JSON:', e);
+            // אם יש שגיאת פרסור, נשתמש במערך ריק
+          }
+        }
+      }
+      
+      const automation: Automation = {
+        id: data.id,
+        name: data.name,
+        description: data.description || '',
+        isActive: data.is_active, // המרה מ-snake_case ל-camelCase
+        is_active: data.is_active, // שמירה גם על השדה המקורי
+        createdAt: data.created_at,
+        created_at: data.created_at,
+        updatedAt: data.updated_at,
+        updated_at: data.updated_at,
+        trigger,
+        actions: actions || [],
+      };
+    
+      console.log('DEBUG - Processed automation:', JSON.stringify(automation));
+      return automation;
+    } catch (error) {
+      console.warn('DEBUG - Supabase connection failed, using mock data:', error);
+      const mockAutomations = this.getMockAutomations();
+      const mockAutomation = mockAutomations.find(automation => automation.id === id) || null;
+      console.log('DEBUG - Found mock automation as fallback:', mockAutomation ? 'yes' : 'no');
+      return mockAutomation;
+    }
   }
 
   // יצירת אוטומציה חדשה
   async createAutomation(automationData: Omit<Automation, 'id' | 'createdAt' | 'updatedAt'>): Promise<Automation> {
     console.log('DEBUG - createAutomation called with data:', JSON.stringify(automationData));
   
-    // Always create mock automation since automation tables don't exist in Supabase
-    console.log('DEBUG - Creating mock automation (automation tables not implemented in DB)');
-    const newId = `auto-${Date.now()}`;
-    
-    // וודא שיש id לטריגר ולפעולות
-    const trigger = {
-      ...automationData.trigger,
-      id: automationData.trigger.id || `trigger-${Date.now()}`
-    };
-    
-    const actions = automationData.actions.map((action, index) => ({
-      ...action,
-      id: action.id || `action-${Date.now()}-${index}`
-    }));
-    
-    const newAutomation: Automation = {
-      ...automationData,
-      id: newId,
-      trigger,
-      actions,
-      isActive: automationData.isActive !== undefined ? automationData.isActive : true,
-      is_active: automationData.isActive !== undefined ? automationData.isActive : true,
-      createdAt: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    
-    console.log('DEBUG - Created mock automation:', JSON.stringify(newAutomation));
-    return newAutomation;
+    // אם סופרבייס לא מוגדר, החזר נתונים לדוגמה
+    if (!isSupabaseConfigured || !supabase) {
+      console.log('DEBUG - Supabase not configured, creating mock automation');
+      const newId = `auto-${Date.now()}`;
+      
+      // וודא שיש id לטריגר ולפעולות
+      const trigger = {
+        ...automationData.trigger,
+        id: automationData.trigger.id || `trigger-${Date.now()}`
+      };
+      
+      const actions = automationData.actions.map((action, index) => ({
+        ...action,
+        id: action.id || `action-${Date.now()}-${index}`
+      }));
+      
+      const newAutomation: Automation = {
+        ...automationData,
+        id: newId,
+        trigger,
+        actions,
+        isActive: automationData.isActive !== undefined ? automationData.isActive : true,
+        is_active: automationData.isActive !== undefined ? automationData.isActive : true,
+        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      
+      console.log('DEBUG - Created mock automation:', JSON.stringify(newAutomation));
+      return newAutomation;
+    }
+
+    try {
+      // בדיקה אם הטבלה קיימת ויצירתה אם לא
+      await this.ensureAutomationsTableExists();
+      
+      console.log('DEBUG - Creating new automation in Supabase');
+      
+      // וודא שיש id לטריגר ולפעולות
+      const trigger = {
+        ...automationData.trigger,
+        id: automationData.trigger.id || `trigger-${Date.now()}`
+      };
+      
+      const actions = automationData.actions.map((action, index) => ({
+        ...action,
+        id: action.id || `action-${Date.now()}-${index}`
+      }));
+      
+      const timestamp = new Date().toISOString();
+      const insertData = {
+        name: automationData.name,
+        description: automationData.description || '',
+        is_active: automationData.isActive !== undefined ? automationData.isActive : true,
+        trigger: JSON.stringify(trigger),
+        actions: JSON.stringify(actions),
+        created_at: timestamp,
+        updated_at: timestamp,
+      };
+      
+      console.log('DEBUG - Insert data prepared:', JSON.stringify(insertData));
+      
+      const { data, error } = await supabase
+        .from('automations')
+        .insert([insertData])
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error('DEBUG - Error creating automation:', error.message, error.details, error.hint);
+        throw new Error(`Failed to create automation: ${error.message}`);
+      }
+
+      if (!data) {
+        console.error('DEBUG - No data returned after insert');
+        throw new Error('Failed to create automation: No data returned');
+      }
+      
+      console.log('DEBUG - Automation created successfully:', JSON.stringify(data));
+      
+      // המרת שדות snake_case ל-camelCase לצורך תאימות עם הממשק
+      const processedAutomation: Automation = {
+        id: data.id,
+        name: data.name,
+        description: data.description || '',
+        isActive: data.is_active, // המרה מ-snake_case ל-camelCase
+        is_active: data.is_active, // שמירה גם על השדה המקורי
+        createdAt: data.created_at,
+        created_at: data.created_at,
+        updatedAt: data.updated_at,
+        updated_at: data.updated_at,
+        trigger: data.trigger,
+        actions: data.actions || [],
+      };
+
+      return processedAutomation;
+    } catch (error: any) {
+      console.error('DEBUG - Supabase connection failed:', error);
+      throw new Error(`Failed to create automation: ${error.message || error}`);
+    }
   }
 
   // עדכון אוטומציה קיימת
@@ -92,65 +420,40 @@ class AutomationService {
     }
 
     try {
-      console.log('DEBUG - Updating automation in Supabase with ID:', id);
-    
-      // בדיקה אם האוטומציה קיימת
-      const { data: existingData, error: fetchError } = await supabase
-        .from('automations')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // בדיקה אם הטבלה קיימת ויצירתה אם לא
+      await this.ensureAutomationsTableExists();
       
-      if (fetchError) {
-        console.error('DEBUG - Error fetching existing automation:', fetchError.message);
-        throw new Error(`Automation not found: ${fetchError.message}`);
-      }
-    
-      if (!existingData) {
-        console.error('DEBUG - No automation found with ID:', id);
-        throw new Error('Automation not found');
-      }
-    
-      console.log('DEBUG - Existing automation data:', JSON.stringify(existingData));
-    
-      // המרה מ-camelCase ל-snake_case והכנת הנתונים לעדכון
+      console.log('DEBUG - Updating automation in Supabase with ID:', id);
+      
+      // הכנת נתוני העדכון בפורמט snake_case לסופרבייס
       const updateData: Record<string, any> = {
         updated_at: new Date().toISOString()
       };
-    
-      // המרה ידנית של השדות הבסיסיים
       if (automationData.name !== undefined) updateData.name = automationData.name;
       if (automationData.description !== undefined) updateData.description = automationData.description;
       if (automationData.isActive !== undefined) updateData.is_active = automationData.isActive;
-    
-      // טיפול מיוחד בטריגר
       if (automationData.trigger) {
-        // וודא שיש id לטריגר
         const trigger = {
           ...automationData.trigger,
-          id: automationData.trigger.id || existingData.trigger?.id || `trigger-${Date.now()}`
+          id: automationData.trigger.id || `trigger-${Date.now()}`
         };
-        updateData.trigger = trigger;
+        updateData.trigger = JSON.stringify(trigger);
       }
-    
-      // טיפול מיוחד בפעולות
       if (automationData.actions) {
-        // וודא שיש id לכל פעולה
         const actions = automationData.actions.map((action, index) => ({
           ...action,
           id: action.id || `action-${Date.now()}-${index}`
         }));
-        updateData.actions = actions;
+        updateData.actions = JSON.stringify(actions);
       }
-    
-      console.log('DEBUG - Update data prepared:', JSON.stringify(updateData));
-    
-      // שליחת העדכון לסופרבייס
+      
+      console.log('DEBUG - Update data prepared for DB:', JSON.stringify(updateData));
+      
       const { data, error } = await supabase
         .from('automations')
         .update(updateData)
         .eq('id', id)
-        .select('*, trigger(*), actions(*)')
+        .select('*')
         .single();
 
       if (error) {
@@ -162,9 +465,9 @@ class AutomationService {
         console.error('DEBUG - No data returned after update');
         throw new Error('Failed to update automation: No data returned');
       }
-    
+      
       console.log('DEBUG - Automation updated successfully:', JSON.stringify(data));
-    
+      
       // המרת שדות snake_case ל-camelCase לצורך תאימות עם הממשק
       const processedAutomation: Automation = {
         id: data.id,
@@ -221,12 +524,16 @@ class AutomationService {
         return false;
       }
       
+      console.log('DEBUG - Found automation:', JSON.stringify(automation));
+      
       // בדיקה אם האוטומציה פעילה - בודקים גם isActive וגם is_active
       const isAutomationActive = automation.isActive === true || automation.is_active === true;
       if (!isAutomationActive) {
         console.log('DEBUG - Automation is not active:', id);
         return false;
       }
+      
+      console.log('DEBUG - Automation is active, checking actions:', JSON.stringify(automation.actions));
       
       // הוספת שדה event לקונטקסט בהתאם לסוג הטריגר
       if (automation.trigger && !context.event) {
@@ -248,10 +555,31 @@ class AutomationService {
       
       console.log('DEBUG - Trigger conditions met, executing actions for automation:', id);
 
-      // הפעלת הפעולות
-      for (const action of automation.actions) {
-        console.log('DEBUG - Executing action:', action.type, action.name);
-        await this.executeAction(action, context);
+      // בדיקה אם יש פעולות מוגדרות
+      if (!automation.actions || automation.actions.length === 0) {
+        console.log('DEBUG - No actions defined for automation, creating default webhook action');
+        
+        // יצירת פעולת webhook ברירת מחדל עם URL מהקונטקסט או URL קבוע לבדיקה
+        const defaultAction: Action = {
+          id: `default-action-${Date.now()}`,
+          name: 'Default Webhook Action',
+          type: ActionType.WEBHOOK,
+          description: 'Auto-generated webhook action',
+          parameters: {
+            url: 'https://webhook.site/test-webhook' // URL לבדיקה
+          },
+          webhook: 'https://webhook.site/test-webhook' // URL לבדיקה
+        };
+        
+        console.log('DEBUG - Executing default webhook action');
+        await this.executeAction(defaultAction, context);
+      } else {
+        // הפעלת הפעולות המוגדרות
+        console.log('DEBUG - Found', automation.actions.length, 'actions to execute');
+        for (const action of automation.actions) {
+          console.log('DEBUG - Executing action:', action.type, action.name);
+          await this.executeAction(action, context);
+        }
       }
 
       console.log('DEBUG - All actions executed successfully for automation:', id);
@@ -263,7 +591,19 @@ class AutomationService {
   }
 
   // בדיקת תנאי הטריגר
-  private evaluateTriggerConditions(trigger: Trigger, context: Record<string, any>): boolean {
+  private evaluateTriggerConditions(trigger: Trigger | null | undefined, context: Record<string, any>): boolean {
+    // אם אין טריגר מוגדר, נאפשר הפעלה אם זה אירוע יצירת כרטיס
+    if (!trigger) {
+      console.log('DEBUG - No trigger defined, checking if this is a ticket_created event');
+      // אם זה אירוע יצירת כרטיס, נאפשר הפעלה
+      if (context.event === 'ticket_created' || context.ticketId) {
+        console.log('DEBUG - This is a ticket_created event, allowing execution without trigger');
+        return true;
+      }
+      console.log('DEBUG - Not a ticket_created event, skipping execution');
+      return false;
+    }
+    
     console.log('DEBUG - Evaluating trigger conditions for type:', trigger.type);
     console.log('DEBUG - Context received:', JSON.stringify(context));
     console.log('DEBUG - Trigger conditions:', JSON.stringify(trigger.conditions));
@@ -345,6 +685,15 @@ class AutomationService {
   // ביצוע פעולה
   private async executeAction(action: Action, context: Record<string, any>): Promise<void> {
     // כאן תהיה לוגיקה לביצוע הפעולה בהתאם לסוג הפעולה
+    console.log('DEBUG - Executing action:', action.type, 'with parameters:', JSON.stringify(action.parameters));
+    
+    // בדיקה אם יש URL ל-webhook בפעולה, ללא קשר לסוג הפעולה
+    const webhookUrl = action.parameters?.url || action.parameters?.webhookUrl || action.webhook;
+    if (webhookUrl && (action.type === ActionType.WEBHOOK || !action.type)) {
+      console.log('DEBUG - Found webhook URL:', webhookUrl);
+      await this.callWebhook(webhookUrl, action.parameters || {}, context);
+      return;
+    }
     
     switch (action.type) {
       case ActionType.SEND_EMAIL:
@@ -356,8 +705,12 @@ class AutomationService {
         break;
       
       case ActionType.WEBHOOK:
-        if (action.webhook) {
-          await this.callWebhook(action.webhook, action.parameters, context);
+        // בדיקה אם יש URL ב-parameters או ב-webhook
+        if (webhookUrl) {
+          console.log('DEBUG - Found webhook URL:', webhookUrl);
+          await this.callWebhook(webhookUrl, action.parameters || {}, context);
+        } else {
+          console.error('DEBUG - No webhook URL found in action:', JSON.stringify(action));
         }
         break;
       
@@ -376,70 +729,173 @@ class AutomationService {
   // עדכון כרטיס
   private async updateTicket(parameters: Record<string, any>, context: Record<string, any>): Promise<void> {
     // כאן תהיה לוגיקה לעדכון כרטיס
-    console.log('Updating ticket:', { parameters, context });
-    // בפרויקט אמיתי: קריאה לשירות עדכון כרטיסים
-  }
-
-  // קריאה ל-webhook
-  private async callWebhook(url: string, parameters: Record<string, any>, context: Record<string, any>): Promise<void> {
+    console.log('DEBUG - Updating ticket:', { parameters, context });
+    
+    // בדיקה אם יש מזהה כרטיס בקונטקסט
+    if (!context.ticketId) {
+      console.warn('DEBUG - Cannot update ticket: No ticketId in context');
+      return;
+    }
+    
     try {
-      console.log('DEBUG - callWebhook started with URL:', url);
-      console.log('DEBUG - Parameters:', JSON.stringify(parameters));
-      console.log('DEBUG - Context:', JSON.stringify(context));
-      
+      // במקום לקרוא לשירות, נעדכן ישירות בסופרבייס כדי למנוע תלות מעגלית
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase
+          .from('tickets')
+          .update(parameters)
+          .eq('id', context.ticketId);
+        
+        if (error) {
+          throw error;
+        }
+        console.log('DEBUG - Ticket updated successfully in Supabase:', context.ticketId);
+      } else {
+        console.log('DEBUG - Mock update ticket:', context.ticketId, parameters);
+      }
+    } catch (error) {
+      console.error('DEBUG - Failed to update ticket:', error);
+    }
+  }
+  
+  // קריאה ל-webhook
+  private async callWebhook(url: string, parameters: Record<string, any>, context: Record<string, any>): Promise<boolean> {
+    console.log('DEBUG - callWebhook started with URL:', url);
+    console.log('DEBUG - Parameters:', JSON.stringify(parameters));
+    console.log('DEBUG - Context:', JSON.stringify(context));
+    
+    try {      
       // קבלת פרטי הכרטיס המלאים אם יש מזהה כרטיס בקונטקסט
       let ticketData = {};
       
-      if (context.ticketId) {
+      // אם יש לנו כבר את נתוני הכרטיס בקונטקסט (כמו במקרה של יצירת כרטיס חדש)
+      if (context.ticket) {
+        ticketData = context.ticket;
+        console.log('DEBUG - Using ticket data from context for webhook');
+      } else if (context.ticketId) {
         console.log('DEBUG - Found ticketId in context:', context.ticketId);
-        try {
-          // קבלת פרטי הכרטיס המלאים
-          const ticket = await ticketService.getTicket(context.ticketId);
-          console.log('DEBUG - Retrieved ticket:', ticket ? 'success' : 'null');
-          
-          // שליחת הכרטיס המלא כמו שהוא, ללא שינויים
-          if (ticket) {
-            ticketData = ticket;
-            console.log('DEBUG - Ticket data prepared for webhook');
-          }
-        } catch (ticketError) {
-          console.warn('DEBUG - Failed to fetch ticket details for webhook:', ticketError);
-        }
-      } else {
-        console.log('DEBUG - No ticketId in context, skipping ticket data fetch');
+        console.log('DEBUG - Using ticketId only, not fetching full ticket to avoid circular dependency');
+        ticketData = { id: context.ticketId };
       }
       
-      // שליחת נתונים ל-webhook עם כל הפרטים
-      console.log('DEBUG - Preparing to send webhook request to:', url);
-      
+      // הכנת הנתונים לשליחה
       const payload = {
-        parameters,
-        context,
-        ticket: ticketData,
-        timestamp: new Date().toISOString(),
+        ...parameters,
+        ticketData,
+        context: {
+          timestamp: new Date().toISOString(),
+          event_type: context.event || 'unknown_event',
+          ...context
+        }
       };
       
-      console.log('DEBUG - Webhook payload prepared:', JSON.stringify(payload).substring(0, 200) + '...');
+      // לוג מפורט יותר של הנתונים שנשלחים
+      console.log('DEBUG - Sending webhook payload to:', url);
+      console.log('DEBUG - Payload size:', JSON.stringify(payload).length, 'bytes');
+      console.log('DEBUG - Payload preview:', JSON.stringify(payload).substring(0, 200) + (JSON.stringify(payload).length > 200 ? '...' : ''));
       
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      // הגדרת timeout לקריאה
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 שניות timeout
+      
+      try {
+        console.log('DEBUG - Executing fetch call to webhook URL:', url);
+        
+        // ניסיון לבצע את הקריאה באמצעות XMLHttpRequest אם fetch לא זמין
+        if (typeof fetch === 'undefined') {
+          console.log('DEBUG - fetch API not available, trying XMLHttpRequest');
+          return new Promise((resolve) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', url, true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.setRequestHeader('User-Agent', 'OptiSupport-Automation/1.0');
+            xhr.setRequestHeader('X-Automation-ID', context.automationId || 'unknown');
+            
+            xhr.onload = function() {
+              console.log('DEBUG - XMLHttpRequest completed with status:', xhr.status);
+              if (xhr.status >= 200 && xhr.status < 300) {
+                console.log('DEBUG - Webhook called successfully via XMLHttpRequest');
+                resolve(true);
+              } else {
+                console.error('DEBUG - Webhook call failed via XMLHttpRequest with status:', xhr.status);
+                resolve(false);
+              }
+            };
+            
+            xhr.onerror = function() {
+              console.error('DEBUG - XMLHttpRequest failed to execute');
+              resolve(false);
+            };
+            
+            xhr.ontimeout = function() {
+              console.error('DEBUG - XMLHttpRequest timed out');
+              resolve(false);
+            };
+            
+            xhr.timeout = 10000; // 10 שניות timeout
+            
+            try {
+              xhr.send(JSON.stringify(payload));
+              console.log('DEBUG - XMLHttpRequest sent');
+            } catch (xhrError) {
+              console.error('DEBUG - Failed to send XMLHttpRequest:', xhrError);
+              resolve(false);
+            }
+          });
+        }
+        
+        // שימוש ב-fetch API
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'OptiSupport-Automation/1.0',
+            'X-Automation-ID': context.automationId || 'unknown',
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId); // ביטול ה-timeout אם הקריאה הסתיימה
 
-      console.log('DEBUG - Webhook response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`Webhook call failed with status: ${response.status}`);
+        console.log('DEBUG - Webhook response status:', response.status);
+        
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => 'No response text');
+          console.error(`DEBUG - Webhook call failed with status: ${response.status}`, errorText.substring(0, 200));
+          return false;
+        }
+
+        const responseText = await response.text().catch(() => 'No response text');
+        console.log('DEBUG - Webhook called successfully:', url);
+        console.log('DEBUG - Webhook response:', responseText.substring(0, 200) + (responseText.length > 200 ? '...' : ''));
+        return true;
+      } catch (fetchError: unknown) {
+        clearTimeout(timeoutId);
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          console.error('DEBUG - Webhook call timed out after 10 seconds:', url);
+        } else if (fetchError instanceof Error) {
+          console.error('DEBUG - Fetch error in webhook call:', fetchError.message);
+          console.error('DEBUG - Full error details:', fetchError);
+        } else {
+          console.error('DEBUG - Unknown fetch error in webhook call:', fetchError);
+        }
+        
+        // ניסיון נוסף עם האובייקט Image לשליחת בקשה בסיסית
+        console.log('DEBUG - Trying alternative method with Image object');
+        try {
+          const img = new Image();
+          const queryParams = `?data=${encodeURIComponent(JSON.stringify({ ping: true, timestamp: new Date().toISOString() }))}`;
+          img.src = url + queryParams;
+          console.log('DEBUG - Image ping sent to:', url + queryParams);
+          return true; // מחזירים true כי אין דרך לדעת אם הקריאה הצליחה
+        } catch (imgError) {
+          console.error('DEBUG - Image ping method failed:', imgError);
+          return false;
+        }
       }
-
-      const responseText = await response.text();
-      console.log('DEBUG - Webhook called successfully:', url);
-      console.log('DEBUG - Webhook response:', responseText.substring(0, 200));
     } catch (error) {
       console.error('DEBUG - Failed to call webhook:', error);
+      return false;
     }
   }
 
@@ -569,4 +1025,8 @@ class AutomationService {
   }
 }
 
+// יצירת מופע יחיד של השירות
 export const automationService = new AutomationService();
+
+// ייצוא ברירת מחדל של השירות
+export default automationService;

@@ -592,6 +592,12 @@ export class AutomationService {
 
   // בדיקת תנאי הטריגר
   private evaluateTriggerConditions(trigger: Trigger | null | undefined, context: Record<string, any>): boolean {
+    // אם זה אירוע יצירת כרטיס על ידי לקוח, נוסיף סימון מיוחד
+    const isCustomerCreatedTicket = context.ticket?.customer_email && !context.ticket?.assigned_to;
+    if (isCustomerCreatedTicket) {
+      console.log('DEBUG - This appears to be a customer-created ticket');
+    }
+    
     // אם אין טריגר מוגדר, נאפשר הפעלה אם זה אירוע יצירת כרטיס
     if (!trigger) {
       console.log('DEBUG - No trigger defined, checking if this is a ticket_created event');
@@ -618,44 +624,54 @@ export class AutomationService {
           return false;
         }
         
+        // בדיקה אם זה כרטיס שנוצר על ידי לקוח
+        const isCustomerCreatedTicket = context.ticket?.customer_email && !context.ticket?.assigned_to;
+        
         // Check additional conditions if they exist
         if (trigger.conditions) {
-          // Check priority condition
-          if (trigger.conditions.priority && context.ticket) {
+          // אם זה כרטיס שנוצר על ידי לקוח, נתעלם מתנאי priority כי הוא נקבע אוטומטית
+          if (trigger.conditions.priority && context.ticket && !isCustomerCreatedTicket) {
             const matchesPriority = context.ticket.priority === trigger.conditions.priority;
             console.log('DEBUG - Priority condition check:', {
               required: trigger.conditions.priority,
               actual: context.ticket.priority,
-              matches: matchesPriority
+              matches: matchesPriority,
+              isCustomerCreated: isCustomerCreatedTicket
             });
             if (!matchesPriority) {
               return false;
             }
           }
           
-          // Check status condition
-          if (trigger.conditions.status && context.ticket) {
+          // אם זה כרטיס שנוצר על ידי לקוח, נתעלם מתנאי status כי הוא תמיד 'open'
+          if (trigger.conditions.status && context.ticket && !isCustomerCreatedTicket) {
             const matchesStatus = context.ticket.status === trigger.conditions.status;
             console.log('DEBUG - Status condition check:', {
               required: trigger.conditions.status,
               actual: context.ticket.status,
-              matches: matchesStatus
+              matches: matchesStatus,
+              isCustomerCreated: isCustomerCreatedTicket
             });
             if (!matchesStatus) {
               return false;
             }
           }
           
-          // Check category condition
+          // בדיקת קטגוריה - נבדוק גם בכרטיסים שנוצרו על ידי לקוחות
           if (trigger.conditions.category && context.ticket) {
             const matchesCategory = context.ticket.category === trigger.conditions.category;
             console.log('DEBUG - Category condition check:', {
               required: trigger.conditions.category,
               actual: context.ticket.category,
-              matches: matchesCategory
+              matches: matchesCategory,
+              isCustomerCreated: isCustomerCreatedTicket
             });
-            if (!matchesCategory) {
+            if (!matchesCategory && !isCustomerCreatedTicket) {
+              // אם זה לא כרטיס שנוצר על ידי לקוח, נחזיר false
               return false;
+            } else if (!matchesCategory && isCustomerCreatedTicket) {
+              // אם זה כרטיס שנוצר על ידי לקוח, נתעלם מאי התאמה בקטגוריה
+              console.log('DEBUG - Ignoring category mismatch for customer-created ticket');
             }
           }
         }
@@ -777,6 +793,9 @@ export class AutomationService {
         ticketData = { id: context.ticketId };
       }
       
+      // בדיקה אם זה כרטיס שנוצר על ידי לקוח
+      const isCustomerCreatedTicket = ticketData && 'customer_email' in ticketData && !('assigned_to' in ticketData && ticketData.assigned_to);
+      
       // הכנת הנתונים לשליחה
       const payload = {
         ...parameters,
@@ -784,6 +803,8 @@ export class AutomationService {
         context: {
           timestamp: new Date().toISOString(),
           event_type: context.event || 'unknown_event',
+          source: isCustomerCreatedTicket ? 'customer_portal' : 'agent_dashboard',
+          is_customer_created: isCustomerCreatedTicket,
           ...context
         }
       };

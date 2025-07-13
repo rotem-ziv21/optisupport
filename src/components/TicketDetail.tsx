@@ -40,6 +40,12 @@ export const TicketDetail: React.FC = () => {
   const handleSendReply = async () => {
     if (!ticket || !replyContent.trim() || sending) return;
     
+    console.log('Sending reply in TicketDetail:', {
+      ticketId: ticket.id,
+      currentStatus: ticket.status,
+      timestamp: new Date().toISOString()
+    });
+    
     try {
       setSending(true);
       
@@ -51,7 +57,15 @@ export const TicketDetail: React.FC = () => {
       
       // Refresh ticket data to include the new message
       const updatedTicket = await ticketService.getTicket(ticket.id);
-      setTicket(updatedTicket);
+      if (updatedTicket) {
+        console.log('Ticket status after reply in TicketDetail:', {
+          ticketId: updatedTicket.id,
+          statusBefore: ticket.status,
+          statusAfter: updatedTicket.status,
+          wasChanged: ticket.status !== updatedTicket.status
+        });
+        setTicket(updatedTicket);
+      }
       setReplyContent('');
     } catch (error) {
       console.error('Failed to send reply:', error);

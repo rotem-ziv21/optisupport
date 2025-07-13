@@ -1,10 +1,11 @@
-import React from 'react';
+
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import { TicketList } from './components/TicketList';
 import { TicketDetail } from './components/TicketDetail';
 import { KnowledgeBase } from './components/KnowledgeBase';
+import { Automations } from './components/Automations';
 import { CustomerTicketForm } from './components/CustomerTicketForm';
 import { CustomerLandingPage } from './components/CustomerLandingPage';
 import { CustomerTicketView } from './components/CustomerTicketView';
@@ -52,6 +53,13 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <KnowledgeBase />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/automations" element={
+            <ProtectedRoute>
+              <Layout>
+                <Automations />
               </Layout>
             </ProtectedRoute>
           } />

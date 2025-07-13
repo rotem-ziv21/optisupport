@@ -13,7 +13,8 @@ import {
   MagnifyingGlassIcon,
   Bars3Icon,
   XMarkIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  BoltIcon
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 
@@ -21,6 +22,7 @@ const navigation = [
   { name: 'לוח בקרה', href: '/', icon: HomeIcon },
   { name: 'כרטיסים', href: '/tickets', icon: TicketIcon },
   { name: 'מאגר הידע', href: '/knowledge', icon: BookOpenIcon },
+  { name: 'אוטומציות', href: '/automations', icon: BoltIcon },
   { name: 'צוות', href: '/team', icon: UserGroupIcon },
   { name: 'אנליטיקה', href: '/analytics', icon: ChartBarIcon },
   { name: 'הגדרות', href: '/settings', icon: CogIcon },

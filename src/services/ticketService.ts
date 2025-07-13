@@ -1,4 +1,6 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { automationService } from './automationService';
+import { TriggerType } from '../types/automation';
 import { Ticket, Message } from '../types';
 import { aiService } from './aiService';
 import { mockTickets } from '../utils/mockData';
@@ -264,6 +266,26 @@ class TicketService {
           ...data,
           conversation: []
         };
+        
+        // הפעלת אוטומציות עבור כרטיס חדש
+        try {
+          console.log('Triggering automations for new ticket:', data.id);
+          const automations = await automationService.getAutomations();
+          
+          // מעבר על כל האוטומציות ובדיקה אם הן מתאימות לטריגר של כרטיס חדש
+          for (const automation of automations) {
+            if (automation.isActive && automation.trigger && automation.trigger.type === TriggerType.TICKET_CREATED) {
+              console.log('Found active automation with TICKET_CREATED trigger:', automation.id);
+              await automationService.triggerAutomation(automation.id, { 
+                ticketId: data.id,
+                ticket: newTicket
+              });
+            }
+          }
+        } catch (automationError) {
+          console.error('Failed to trigger automations for new ticket:', automationError);
+          // אל תפסיק את התהליך אם יש שגיאה באוטומציות
+        }
         
         return newTicket;
       } catch (error) {
@@ -567,7 +589,7 @@ class TicketService {
         }).length,
         avg_response_time: avgResolutionTime,
         satisfaction_score: satisfactionScore,
-        high_risk_tickets: mockTickets.filter(t => t.risk_level === 'high').length,
+        high_risk_tickets: mockTickets.filter(t => t.risk_level === 'high' && t.status !== 'resolved' && t.status !== 'closed').length,
         ai_accuracy: await this.calculateAIAccuracy()
       };
     }
@@ -587,7 +609,7 @@ class TicketService {
       supabase.from('tickets').select('id', { count: 'exact' }).eq('status', 'open'),
       supabase.from('tickets').select('id', { count: 'exact' }).eq('status', 'in_progress'),
       supabase.from('tickets').select('id', { count: 'exact' }).in('status', ['resolved', 'closed']).gte('updated_at', `${today}T00:00:00`),
-      supabase.from('tickets').select('id', { count: 'exact' }).eq('risk_level', 'high'),
+      supabase.from('tickets').select('id', { count: 'exact' }).eq('risk_level', 'high').not('status', 'in', '(resolved,closed)'),
       this.calculateAverageResolutionTime(),
       this.calculateSatisfactionScore()
     ]);

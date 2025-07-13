@@ -344,6 +344,12 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
   const handleSendMessage = async () => {
     if (!currentTicket || !newMessage.trim()) return;
 
+    console.log('Sending regular message:', {
+      ticketId: currentTicket.id,
+      currentStatus: currentTicket.status,
+      timestamp: new Date().toISOString()
+    });
+
     setLoading(true);
     try {
       await ticketService.addMessage(currentTicket.id, {
@@ -357,6 +363,12 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
       // Refresh ticket data
       const updatedTicket = await ticketService.getTicket(currentTicket.id);
       if (updatedTicket) {
+        console.log('Ticket status after regular message:', {
+          ticketId: updatedTicket.id,
+          statusBefore: currentTicket.status,
+          statusAfter: updatedTicket.status,
+          wasChanged: currentTicket.status !== updatedTicket.status
+        });
         setCurrentTicket(updatedTicket);
       }
       
@@ -373,6 +385,12 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
   const handleSendAsCustomer = async () => {
     if (!currentTicket || !newMessage.trim()) return;
 
+    console.log('Sending message as customer:', {
+      ticketId: currentTicket.id,
+      currentStatus: currentTicket.status,
+      timestamp: new Date().toISOString()
+    });
+
     setLoading(true);
     try {
       await ticketService.addMessage(currentTicket.id, {
@@ -386,6 +404,12 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
       // Refresh ticket data
       const updatedTicket = await ticketService.getTicket(currentTicket.id);
       if (updatedTicket) {
+        console.log('Ticket status after customer message:', {
+          ticketId: updatedTicket.id,
+          statusBefore: currentTicket.status,
+          statusAfter: updatedTicket.status,
+          wasChanged: currentTicket.status !== updatedTicket.status
+        });
         setCurrentTicket(updatedTicket);
       }
       
@@ -402,6 +426,12 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
   const handleSendToCustomer = async () => {
     if (!currentTicket || !newMessage.trim()) return;
 
+    console.log('Sending message to customer:', {
+      ticketId: currentTicket.id,
+      currentStatus: currentTicket.status,
+      timestamp: new Date().toISOString()
+    });
+
     setLoading(true);
     try {
       // שימוש בפונקציה החדשה לשליחת הודעה ללקוח
@@ -417,6 +447,12 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
       // רענון נתוני הכרטיס
       const updatedTicket = await ticketService.getTicket(currentTicket.id);
       if (updatedTicket) {
+        console.log('Ticket status after sending to customer:', {
+          ticketId: updatedTicket.id,
+          statusBefore: currentTicket.status,
+          statusAfter: updatedTicket.status,
+          wasChanged: currentTicket.status !== updatedTicket.status
+        });
         setCurrentTicket(updatedTicket);
       }
       
@@ -432,6 +468,26 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
   const handleStatusChange = async (newStatus: string) => {
     if (!currentTicket) return;
 
+    // לוג לצורך מעקב שינויי סטטוס
+    console.log('Status change triggered:', { 
+      ticketId: currentTicket.id,
+      from: currentTicket.status, 
+      to: newStatus, 
+      timestamp: new Date().toISOString() 
+    });
+
+    // אישור לפני סגירת כרטיס
+    if ((newStatus === 'resolved' || newStatus === 'closed') && 
+        currentTicket.status !== 'resolved' && 
+        currentTicket.status !== 'closed') {
+      const confirmed = window.confirm('האם אתה בטוח שברצונך לסגור את הכרטיס?');
+      if (!confirmed) {
+        console.log('Status change cancelled by user');
+        setStatusDropdownOpen(false);
+        return;
+      }
+    }
+
     try {
       const updatedTicket = await ticketService.updateTicket(currentTicket.id, {
         status: newStatus as any,
@@ -441,19 +497,36 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
       setCurrentTicket(updatedTicket);
       setStatusDropdownOpen(false);
       onTicketUpdated?.();
+      
+      console.log('Status change completed successfully:', {
+        ticketId: currentTicket.id,
+        newStatus: newStatus
+      });
     } catch (error) {
       console.error('Failed to update ticket status:', error);
+      toast.error('שגיאה בעדכון סטטוס הכרטיס');
     }
   };
 
   const handleUseSuggestedReply = async (reply: string) => {
+    console.log('Using suggested reply:', {
+      ticketId: currentTicket?.id,
+      currentStatus: currentTicket?.status,
+      timestamp: new Date().toISOString()
+    });
+    
     setNewMessage(reply);
   
-    // שליחת ההודעה אוטומטית ללקוח
+    // שליחת ההודעה אוטומטית ללקוח (ללא שינוי סטטוס)
     try {
       setLoading(true);
       
       if (!currentTicket) return;
+      
+      console.log('Sending message without changing status:', {
+        ticketId: currentTicket.id,
+        statusBefore: currentTicket.status
+      });
       
       await ticketService.addMessage(currentTicket.id, {
         content: reply,
@@ -469,6 +542,11 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
       // רענון נתוני הכרטיס
       const updatedTicket = await ticketService.getTicket(currentTicket.id);
       if (updatedTicket) {
+        console.log('Ticket status after message:', {
+          ticketId: updatedTicket.id,
+          statusAfter: updatedTicket.status,
+          wasChanged: currentTicket.status !== updatedTicket.status
+        });
         setCurrentTicket(updatedTicket);
       }
       

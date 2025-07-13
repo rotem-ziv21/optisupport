@@ -1,24 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// שימוש במפתח השירות במקום במפתח האנונימי כדי לעקוף את מדיניות ה-RLS
+const supabaseServiceKey = import.meta.env.SUPABASE_SERVICE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Check if we have valid Supabase credentials
 const hasValidCredentials = supabaseUrl && 
-  supabaseAnonKey && 
+  supabaseServiceKey && 
   supabaseUrl !== 'YOUR_SUPABASE_URL_HERE' && 
-  supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY_HERE';
+  supabaseServiceKey !== 'YOUR_SUPABASE_SERVICE_KEY_HERE';
 
 export const supabase = hasValidCredentials 
-  ? createClient(supabaseUrl, supabaseAnonKey, {
+  ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
       },
       global: {
         headers: {
-          'apikey': supabaseAnonKey,
-          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'apikey': supabaseServiceKey,
+          'Authorization': `Bearer ${supabaseServiceKey}`,
           'Content-Type': 'application/json',
           'Prefer': 'return=representation'
         },

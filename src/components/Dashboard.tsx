@@ -9,7 +9,8 @@ import {
   ChartBarIcon,
   SparklesIcon,
   FaceSmileIcon,
-  BoltIcon
+  BoltIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { ticketService } from '../services/ticketService';
 import { DashboardStats } from '../types';
@@ -131,12 +132,20 @@ const generateInsights = (stats: DashboardStats | null, tickets: any[]): AIInsig
   }
   
   // Priority queue analysis
-  if (stats?.high_risk_tickets && stats.high_risk_tickets > 0) {
-    insights.push({
-      title: 'אלרט עדיפות',
-      description: `${stats.high_risk_tickets} כרטיסים בסיכון גבוה דורשים טיפול מיידי`,
-      type: stats.high_risk_tickets > 5 ? 'urgent' : 'warning'
-    });
+  if (stats?.high_risk_tickets !== undefined) {
+    if (stats.high_risk_tickets > 0) {
+      insights.push({
+        title: 'אלרט עדיפות',
+        description: `${stats.high_risk_tickets} כרטיסים בסיכון גבוה דורשים טיפול מיידי`,
+        type: stats.high_risk_tickets > 5 ? 'urgent' : 'warning'
+      });
+    } else {
+      insights.push({
+        title: 'אין כרטיסי סיכון גבוה',
+        description: 'כל הכרטיסים בסיכון גבוה נפתרו - עבודה מצוינת!',
+        type: 'success'
+      });
+    }
   }
   
   // Resolution time analysis
@@ -328,11 +337,20 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [recentTickets, setRecentTickets] = useState<any[]>([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // פונקציה לרענון ידני של הנתונים
+  const refreshDashboard = () => {
+    console.log('Refreshing dashboard data...');
+    setRefreshTrigger(prev => prev + 1);
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
+        setLoading(true);
         const dashboardStats = await ticketService.getDashboardStats();
+        console.log('Dashboard stats updated:', dashboardStats);
         setStats(dashboardStats);
       } catch (error) {
         console.error('Failed to fetch dashboard stats:', error);
@@ -380,6 +398,16 @@ export function Dashboard() {
 
     fetchStats();
     fetchRecentTickets();
+  }, [refreshTrigger]); // רענון נתונים כאשר refreshTrigger משתנה
+
+  // רענון אוטומטי כל 30 שניות
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('Auto-refreshing dashboard data...');
+      setRefreshTrigger(prev => prev + 1);
+    }, 30000); // 30 שניות
+
+    return () => clearInterval(interval);
   }, []);
 
   if (loading || ticketsLoading) {
@@ -403,11 +431,22 @@ export function Dashboard() {
           <h1 className="text-4xl font-black text-gray-900 bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text">לוח בקרה</h1>
           <p className="text-gray-600 mt-2 font-medium">ניהול ומעקב כרטיסי תמיכה</p>
         </div>
-        <div className="flex items-center space-x-3 space-x-reverse bg-gradient-to-r from-blue-50 to-purple-50 px-4 py-3 rounded-2xl border border-blue-200/50 backdrop-blur-sm">
-          <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
-            <BoltIcon className="h-5 w-5 text-white" />
+        <div className="flex items-center space-x-3 space-x-reverse">
+          <button
+            onClick={refreshDashboard}
+            disabled={loading || ticketsLoading}
+            className="flex items-center space-x-2 space-x-reverse px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50 transition-all duration-300 shadow-md hover:shadow-lg"
+            title="רענן נתונים"
+          >
+            <ArrowPathIcon className={`h-4 w-4 text-gray-600 ${(loading || ticketsLoading) ? 'animate-spin' : ''}`} />
+            <span className="text-sm font-medium text-gray-700">רענן</span>
+          </button>
+          <div className="flex items-center space-x-3 space-x-reverse bg-gradient-to-r from-blue-50 to-purple-50 px-4 py-3 rounded-2xl border border-blue-200/50 backdrop-blur-sm">
+            <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
+              <BoltIcon className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-sm font-semibold text-gray-700">תובנות מבוססות בינה מלאכותית</span>
           </div>
-          <span className="text-sm font-semibold text-gray-700">תובנות מבוססות בינה מלאכותית</span>
         </div>
       </div>
 

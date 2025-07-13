@@ -269,21 +269,41 @@ class TicketService {
         
         // הפעלת אוטומציות עבור כרטיס חדש
         try {
-          console.log('Triggering automations for new ticket:', data.id);
+          console.log('DEBUG - Triggering automations for new ticket:', data.id);
+          console.log('DEBUG - Ticket data:', JSON.stringify(newTicket));
+          
           const automations = await automationService.getAutomations();
+          console.log('DEBUG - Found automations:', automations.length);
+          console.log('DEBUG - Automations details:', JSON.stringify(automations));
           
           // מעבר על כל האוטומציות ובדיקה אם הן מתאימות לטריגר של כרטיס חדש
+          let foundMatchingAutomation = false;
           for (const automation of automations) {
+            console.log('DEBUG - Checking automation:', automation.id, 'isActive:', automation.isActive);
+            console.log('DEBUG - Trigger type:', automation.trigger?.type);
+            console.log('DEBUG - Expected type:', TriggerType.TICKET_CREATED);
+            
             if (automation.isActive && automation.trigger && automation.trigger.type === TriggerType.TICKET_CREATED) {
-              console.log('Found active automation with TICKET_CREATED trigger:', automation.id);
-              await automationService.triggerAutomation(automation.id, { 
-                ticketId: data.id,
-                ticket: newTicket
-              });
+              foundMatchingAutomation = true;
+              console.log('DEBUG - Found active automation with TICKET_CREATED trigger:', automation.id);
+              
+              try {
+                await automationService.triggerAutomation(automation.id, { 
+                  ticketId: data.id,
+                  ticket: newTicket
+                });
+                console.log('DEBUG - Successfully triggered automation:', automation.id);
+              } catch (triggerError) {
+                console.error('DEBUG - Error triggering specific automation:', triggerError);
+              }
             }
           }
+          
+          if (!foundMatchingAutomation) {
+            console.log('DEBUG - No matching automations found for TICKET_CREATED trigger');
+          }
         } catch (automationError) {
-          console.error('Failed to trigger automations for new ticket:', automationError);
+          console.error('DEBUG - Failed to trigger automations for new ticket:', automationError);
           // אל תפסיק את התהליך אם יש שגיאה באוטומציות
         }
         

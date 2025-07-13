@@ -192,12 +192,64 @@ class AutomationService {
 
   // בדיקת תנאי הטריגר
   private evaluateTriggerConditions(trigger: Trigger, context: Record<string, any>): boolean {
-    // כאן תהיה לוגיקה לבדיקת תנאי הטריגר בהתאם לסוג הטריגר
-    // לדוגמה: בדיקה אם סטטוס הכרטיס השתנה לערך מסוים
-    
+    console.log('DEBUG - Evaluating trigger conditions for type:', trigger.type);
+    console.log('DEBUG - Context received:', JSON.stringify(context));
+    console.log('DEBUG - Trigger conditions:', JSON.stringify(trigger.conditions));
+  
     switch (trigger.type) {
       case TriggerType.TICKET_CREATED:
-        return context.event === 'ticket_created';
+        // Check if this is a new ticket context (either has ticketId or event)
+        const isNewTicket = context.ticketId || context.event === 'ticket_created';
+        console.log('DEBUG - TICKET_CREATED initial check:', isNewTicket);
+        
+        if (!isNewTicket) {
+          return false;
+        }
+        
+        // Check additional conditions if they exist
+        if (trigger.conditions) {
+          // Check priority condition
+          if (trigger.conditions.priority && context.ticket) {
+            const matchesPriority = context.ticket.priority === trigger.conditions.priority;
+            console.log('DEBUG - Priority condition check:', {
+              required: trigger.conditions.priority,
+              actual: context.ticket.priority,
+              matches: matchesPriority
+            });
+            if (!matchesPriority) {
+              return false;
+            }
+          }
+          
+          // Check status condition
+          if (trigger.conditions.status && context.ticket) {
+            const matchesStatus = context.ticket.status === trigger.conditions.status;
+            console.log('DEBUG - Status condition check:', {
+              required: trigger.conditions.status,
+              actual: context.ticket.status,
+              matches: matchesStatus
+            });
+            if (!matchesStatus) {
+              return false;
+            }
+          }
+          
+          // Check category condition
+          if (trigger.conditions.category && context.ticket) {
+            const matchesCategory = context.ticket.category === trigger.conditions.category;
+            console.log('DEBUG - Category condition check:', {
+              required: trigger.conditions.category,
+              actual: context.ticket.category,
+              matches: matchesCategory
+            });
+            if (!matchesCategory) {
+              return false;
+            }
+          }
+        }
+        
+        console.log('DEBUG - TICKET_CREATED trigger conditions passed');
+        return true;
       
       case TriggerType.TICKET_UPDATED:
         return context.event === 'ticket_updated';
@@ -213,6 +265,7 @@ class AutomationService {
         return context.event === 'message_received';
       
       default:
+        console.log('DEBUG - Unknown trigger type:', trigger.type);
         return false;
     }
   }
@@ -258,44 +311,63 @@ class AutomationService {
   // קריאה ל-webhook
   private async callWebhook(url: string, parameters: Record<string, any>, context: Record<string, any>): Promise<void> {
     try {
+      console.log('DEBUG - callWebhook started with URL:', url);
+      console.log('DEBUG - Parameters:', JSON.stringify(parameters));
+      console.log('DEBUG - Context:', JSON.stringify(context));
+      
       // קבלת פרטי הכרטיס המלאים אם יש מזהה כרטיס בקונטקסט
       let ticketData = {};
       
       if (context.ticketId) {
+        console.log('DEBUG - Found ticketId in context:', context.ticketId);
         try {
           // קבלת פרטי הכרטיס המלאים
           const ticket = await ticketService.getTicket(context.ticketId);
+          console.log('DEBUG - Retrieved ticket:', ticket ? 'success' : 'null');
           
           // שליחת הכרטיס המלא כמו שהוא, ללא שינויים
           if (ticket) {
             ticketData = ticket;
+            console.log('DEBUG - Ticket data prepared for webhook');
           }
         } catch (ticketError) {
-          console.warn('Failed to fetch ticket details for webhook:', ticketError);
+          console.warn('DEBUG - Failed to fetch ticket details for webhook:', ticketError);
         }
+      } else {
+        console.log('DEBUG - No ticketId in context, skipping ticket data fetch');
       }
       
       // שליחת נתונים ל-webhook עם כל הפרטים
+      console.log('DEBUG - Preparing to send webhook request to:', url);
+      
+      const payload = {
+        parameters,
+        context,
+        ticket: ticketData,
+        timestamp: new Date().toISOString(),
+      };
+      
+      console.log('DEBUG - Webhook payload prepared:', JSON.stringify(payload).substring(0, 200) + '...');
+      
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          parameters,
-          context,
-          ticket: ticketData,
-          timestamp: new Date().toISOString(),
-        }),
+        body: JSON.stringify(payload),
       });
 
+      console.log('DEBUG - Webhook response status:', response.status);
+      
       if (!response.ok) {
         throw new Error(`Webhook call failed with status: ${response.status}`);
       }
 
-      console.log('Webhook called successfully:', url);
+      const responseText = await response.text();
+      console.log('DEBUG - Webhook called successfully:', url);
+      console.log('DEBUG - Webhook response:', responseText.substring(0, 200));
     } catch (error) {
-      console.error('Failed to call webhook:', error);
+      console.error('DEBUG - Failed to call webhook:', error);
     }
   }
 
@@ -384,6 +456,40 @@ class AutomationService {
               },
             },
             webhook: 'https://example.com/api/high-priority-ticket',
+          },
+        ],
+      },
+      {
+        id: 'auto-3',
+        name: 'webhook לכל כרטיס חדש',
+        description: 'שליחת webhook כאשר נפתח כרטיס חדש (בכל עדיפות)',
+        isActive: true,
+        createdAt: '2025-07-13T10:00:00Z',
+        updatedAt: '2025-07-13T10:00:00Z',
+        trigger: {
+          id: 'trigger-3',
+          name: 'כרטיס חדש',
+          type: TriggerType.TICKET_CREATED,
+          description: 'כל כרטיס חדש שנפתח',
+          conditions: {}, // אין תנאים מיוחדים - כל כרטיס
+        },
+        actions: [
+          {
+            id: 'action-5',
+            name: 'webhook כרטיס חדש',
+            type: ActionType.WEBHOOK,
+            description: 'שליחת webhook עם פרטי הכרטיס החדש',
+            parameters: {
+              ticketData: {
+                id: '{{ticket.id}}',
+                title: '{{ticket.title}}',
+                priority: '{{ticket.priority}}',
+                status: '{{ticket.status}}',
+                customer: '{{ticket.customer_name}}',
+                description: '{{ticket.description}}'
+              },
+            },
+            webhook: 'https://webhook.site/test-new-ticket',
           },
         ],
       },

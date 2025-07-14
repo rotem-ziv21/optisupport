@@ -690,7 +690,14 @@ export class AutomationService {
         );
       
       case TriggerType.MESSAGE_RECEIVED:
+      // בדיקה אם event הוא מחרוזת או אובייקט
+      if (typeof context.event === 'string') {
         return context.event === 'message_received';
+      } else if (typeof context.event === 'object' && context.event !== null) {
+        // אם event הוא אובייקט, בדוק את שדה ה-type
+        return context.event.type === 'message_received';
+      }
+      return false;
       
       default:
         console.log('DEBUG - Unknown trigger type:', trigger.type);

@@ -397,27 +397,40 @@ class TicketService {
       throw new Error(`Failed to add message: ${error.message}`);
     }
 
-    // Update ticket's updated_at timestamp
-    await supabase
-      .from('tickets')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', ticketId);
-
-    // Re-analyze ticket if customer message
+    // Update ticket's updated_at timestamp and set unread message flags
+    const updateData: any = { updated_at: new Date().toISOString() };
+  
+    // Set appropriate unread message flag based on sender
     if (message.sender === 'customer') {
+      updateData.has_unread_customer_messages = true;
       this.performAIAnalysis(ticketId);
+      
+      // הפעלת אוטומציות להודעות חדשות מלקוח
+      try {
+        console.log('DEBUG - Triggering automations for new customer message:', ticketId);
+        this.triggerAutomationsForNewMessage(ticketId, data);
+      } catch (automationError) {
+        console.error('Failed to trigger automations for new message:', automationError);
+        // המשך הפעולה גם אם האוטומציה נכשלה
+      }
+    } else if (message.sender === 'agent') {
+      updateData.has_unread_agent_messages = true;
+    }
+  
+    try {
+      await supabase
+        .from('tickets')
+        .update(updateData)
+        .eq('id', ticketId);
+    } catch (error) {
+      console.error('Failed to update unread message flags:', error);
+      // Continue execution even if this update fails
+      // This provides graceful degradation if the columns don't exist yet
     }
 
     return data;
   }
 
-  /**
-   * שולח הודעה ללקוח ומעדכן את סטטוס השליחה
-   * @param ticketId מזהה הכרטיס
-   * @param content תוכן ההודעה
-   * @param senderName שם השולח
-   * @returns הודעה שנשלחה
-   */
   async sendMessageToCustomer(ticketId: string, content: string, senderName: string = 'נציג תמיכה'): Promise<Message> {
     // קבלת פרטי הכרטיס כדי לדעת למי לשלוח את ההודעה
     const ticket = await this.getTicket(ticketId);
@@ -571,12 +584,12 @@ class TicketService {
     console.log('DEBUG - triggerAutomationsForNewTicket called for ticket:', ticket.id);
     
     try {
-      // קבלת כל האוטומציות
+      // קבלת כל האוטומציות מהמערכת
       const automations = await automationService.getAutomations();
       console.log(`DEBUG - Found ${automations.length} total automations`);
       console.log('DEBUG - Automations details:', JSON.stringify(automations));
       
-      // סינון אוטומציות פעילות - בודקים גם isActive וגם is_active (תלוי במקור הנתונים)
+      // סינון רק אוטומציות פעילות
       const activeAutomations = automations.filter(automation => {
         const isActive = automation.isActive === true || automation.is_active === true;
         console.log(`DEBUG - Automation ${automation.id} active status:`, isActive);
@@ -585,51 +598,51 @@ class TicketService {
       
       console.log(`DEBUG - Found ${activeAutomations.length} active automations to check`);
       
-      // בדיקה אם יש אוטומציות פעילות
+      // אם אין אוטומציות פעילות, אין צורך להמשיך
       if (activeAutomations.length === 0) {
         console.log('DEBUG - No active automations found, nothing to trigger');
         return;
       }
       
-      // משתנה למעקב אחר אוטומציות מתאימות
+      // בדיקה של כל אוטומציה פעילה
       let foundMatchingAutomation = false;
       
-      // עבור כל אוטומציה פעילה
+      // עבור על כל האוטומציות הפעילות
       for (const automation of activeAutomations) {
         try {
           console.log('DEBUG - Checking automation:', automation.id, 'name:', automation.name);
           console.log('DEBUG - Trigger type:', automation.trigger?.type);
-          console.log('DEBUG - Expected type:', TriggerType.TICKET_CREATED);
           
-          // בדיקה אם הטריגר של האוטומציה הוא יצירת כרטיס
-          // אם אין טריגר מוגדר, נפעיל את האוטומציה בכל מקרה עבור כרטיסים חדשים
+          // בדיקה אם האוטומציה מתאימה לאירוע של יצירת כרטיס חדש
+          // אם אין סוג טריגר מוגדר, נניח שזה TICKET_CREATED כברירת מחדל
           if (!automation.trigger || !automation.trigger.type || automation.trigger.type === TriggerType.TICKET_CREATED) {
             foundMatchingAutomation = true;
             console.log(`DEBUG - Found automation with TICKET_CREATED trigger: ${automation.id} - ${automation.name}`);
             
-            // יצירת קונטקסט עם פרטי הכרטיס
+            // יצירת קונטקסט לאוטומציה
             const context = {
-              ticketId: ticket.id,
-              event: 'ticket_created',
+              ticket,
               automationId: automation.id, // הוספת מזהה האוטומציה לקונטקסט
-              ticket: {
-                ...ticket,
-                id: ticket.id,
-                title: ticket.title,
-                description: ticket.description,
-                status: ticket.status,
-                priority: ticket.priority,
-                category: ticket.category,
-                customer_name: ticket.customer_name,
-                customer_email: ticket.customer_email,
-                customer_phone: ticket.customer_phone,
-                company_name: ticket.company_name,
-                created_at: ticket.created_at,
-                updated_at: ticket.updated_at
+              event: {
+                type: 'ticket_created',
+                timestamp: new Date().toISOString(),
+                data: {
+                  ticket_id: ticket.id,
+                  title: ticket.title,
+                  description: ticket.description,
+                  customer_name: ticket.customer_name,
+                  customer_email: ticket.customer_email,
+                  customer_phone: ticket.customer_phone,
+                  company_name: ticket.company_name,
+                  status: ticket.status,
+                  priority: ticket.priority,
+                  category: ticket.category,
+                  created_at: ticket.created_at
+                }
               }
             };
             
-            // הפעלת האוטומציה עם הקונטקסט
+            // הפעלת האוטומציה
             console.log(`DEBUG - Triggering automation ${automation.id} for new ticket ${ticket.id}`);
             console.log('DEBUG - Automation context:', JSON.stringify(context));
             await automationService.triggerAutomation(automation.id, context);
@@ -639,11 +652,10 @@ class TicketService {
           }
         } catch (error) {
           console.error(`DEBUG - Error triggering automation ${automation.id}:`, error);
-          // המשך לאוטומציה הבאה גם אם יש שגיאה
+          // המשך לאוטומציה הבאה גם אם זו נכשלה
         }
       }
       
-      // בדיקה אם נמצאה אוטומציה מתאימה
       if (!foundMatchingAutomation) {
         console.log('DEBUG - No matching automations found for TICKET_CREATED trigger');
       }
@@ -651,7 +663,102 @@ class TicketService {
       console.log('DEBUG - Finished checking all automations for new ticket');
     } catch (error) {
       console.error('DEBUG - Error in triggerAutomationsForNewTicket:', error);
-      throw error;
+    }
+  }
+  
+  /**
+   * מפעיל אוטומציות כאשר מתקבלת הודעה חדשה מלקוח
+   * @param ticketId מזהה הכרטיס
+   * @param message ההודעה שהתקבלה
+   */
+  private async triggerAutomationsForNewMessage(ticketId: string, message: Message): Promise<void> {
+    console.log('DEBUG - triggerAutomationsForNewMessage called for ticket:', ticketId);
+    
+    try {
+      // קבלת הכרטיס המלא
+      const ticket = await this.getTicket(ticketId);
+      if (!ticket) {
+        console.error('DEBUG - Cannot trigger automations: Ticket not found:', ticketId);
+        return;
+      }
+      
+      // קבלת כל האוטומציות מהמערכת
+      const automations = await automationService.getAutomations();
+      console.log(`DEBUG - Found ${automations.length} total automations`);
+      
+      // סינון רק אוטומציות פעילות
+      const activeAutomations = automations.filter(automation => {
+        const isActive = automation.isActive === true || automation.is_active === true;
+        return isActive;
+      });
+      
+      console.log(`DEBUG - Found ${activeAutomations.length} active automations to check`);
+      
+      // אם אין אוטומציות פעילות, אין צורך להמשיך
+      if (activeAutomations.length === 0) {
+        console.log('DEBUG - No active automations found, nothing to trigger');
+        return;
+      }
+      
+      // בדיקה של כל אוטומציה פעילה
+      let foundMatchingAutomation = false;
+      
+      // עבור על כל האוטומציות הפעילות
+      for (const automation of activeAutomations) {
+        try {
+          console.log('DEBUG - Checking automation:', automation.id, 'name:', automation.name);
+          console.log('DEBUG - Trigger type:', automation.trigger?.type);
+          
+          // בדיקה אם האוטומציה מתאימה לאירוע של קבלת הודעה חדשה
+          if (automation.trigger?.type === TriggerType.MESSAGE_RECEIVED) {
+            foundMatchingAutomation = true;
+            console.log(`DEBUG - Found automation with MESSAGE_RECEIVED trigger: ${automation.id} - ${automation.name}`);
+            
+            // יצירת קונטקסט לאוטומציה
+            const context = {
+              ticket,
+              message,
+              automationId: automation.id,
+              event: {
+                type: 'message_received',
+                timestamp: new Date().toISOString(),
+                data: {
+                  ticket_id: ticket.id,
+                  message_id: message.id,
+                  message_content: message.content,
+                  sender: message.sender,
+                  sender_name: message.sender_name,
+                  created_at: message.created_at,
+                  ticket_title: ticket.title,
+                  customer_name: ticket.customer_name,
+                  customer_email: ticket.customer_email,
+                  customer_phone: ticket.customer_phone,
+                  company_name: ticket.company_name
+                }
+              }
+            };
+            
+            // הפעלת האוטומציה
+            console.log(`DEBUG - Triggering automation ${automation.id} for new message in ticket ${ticketId}`);
+            console.log('DEBUG - Automation context:', JSON.stringify(context));
+            await automationService.triggerAutomation(automation.id, context);
+            console.log(`DEBUG - Successfully triggered automation ${automation.id}`);
+          } else {
+            console.log(`DEBUG - Automation ${automation.id} does not have MESSAGE_RECEIVED trigger, skipping`);
+          }
+        } catch (error) {
+          console.error(`DEBUG - Error triggering automation ${automation.id}:`, error);
+          // המשך לאוטומציה הבאה גם אם זו נכשלה
+        }
+      }
+      
+      if (!foundMatchingAutomation) {
+        console.log('DEBUG - No matching automations found for MESSAGE_RECEIVED trigger');
+      }
+      
+      console.log('DEBUG - Finished checking all automations for new message');
+    } catch (error) {
+      console.error('DEBUG - Error in triggerAutomationsForNewMessage:', error);
     }
   }
 
@@ -827,6 +934,44 @@ class TicketService {
       }
     } catch (error) {
       console.error('Failed to perform AI analysis:', error);
+    }
+  }
+
+  // סימון הודעות לקוח כנקראו
+  async markMessagesAsRead(ticketId: string): Promise<void> {
+    if (!isSupabaseConfigured || !supabase) {
+      console.log('Supabase not configured, skipping markMessagesAsRead');
+      return;
+    }
+
+    try {
+      await supabase
+        .from('tickets')
+        .update({ has_unread_customer_messages: false })
+        .eq('id', ticketId);
+    } catch (error) {
+      console.error('Failed to mark messages as read:', error);
+      // אם העמודה לא קיימת, נמשיך בלי לזרוק שגיאה
+      // זה מאפשר למערכת לעבוד גם אם העמודה עדיין לא קיימת בבסיס הנתונים
+    }
+  }
+
+  // סימון הודעות נציג כנקראו על ידי הלקוח
+  async markAgentMessagesAsRead(ticketId: string): Promise<void> {
+    if (!isSupabaseConfigured || !supabase) {
+      console.log('Supabase not configured, skipping markAgentMessagesAsRead');
+      return;
+    }
+
+    try {
+      await supabase
+        .from('tickets')
+        .update({ has_unread_agent_messages: false })
+        .eq('id', ticketId);
+    } catch (error) {
+      console.error('Failed to mark agent messages as read:', error);
+      // אם העמודה לא קיימת, נמשיך בלי לזרוק שגיאה
+      // זה מאפשר למערכת לעבוד גם אם העמודה עדיין לא קיימת בבסיס הנתונים
     }
   }
 }

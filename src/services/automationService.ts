@@ -617,7 +617,16 @@ export class AutomationService {
     switch (trigger.type) {
       case TriggerType.TICKET_CREATED:
         // Check if this is a new ticket context (either has ticketId or event)
-        const isNewTicket = context.ticketId || context.event === 'ticket_created';
+        let isNewTicket = context.ticketId;
+        
+        // בדיקה אם event הוא מחרוזת או אובייקט
+        if (typeof context.event === 'string') {
+          isNewTicket = isNewTicket || context.event === 'ticket_created';
+        } else if (typeof context.event === 'object' && context.event !== null) {
+          // אם event הוא אובייקט, בדוק את שדה ה-type
+          isNewTicket = isNewTicket || context.event.type === 'ticket_created';
+        }
+        
         console.log('DEBUG - TICKET_CREATED initial check:', isNewTicket);
         
         if (!isNewTicket) {
@@ -680,11 +689,28 @@ export class AutomationService {
         return true;
       
       case TriggerType.TICKET_UPDATED:
-        return context.event === 'ticket_updated';
+        // בדיקה אם event הוא מחרוזת או אובייקט
+        if (typeof context.event === 'string') {
+          return context.event === 'ticket_updated';
+        } else if (typeof context.event === 'object' && context.event !== null) {
+          // אם event הוא אובייקט, בדוק את שדה ה-type
+          return context.event.type === 'ticket_updated';
+        }
+        return false;
       
       case TriggerType.STATUS_CHANGED:
+        let isTicketUpdated = false;
+        
+        // בדיקה אם event הוא מחרוזת או אובייקט
+        if (typeof context.event === 'string') {
+          isTicketUpdated = context.event === 'ticket_updated';
+        } else if (typeof context.event === 'object' && context.event !== null) {
+          // אם event הוא אובייקט, בדוק את שדה ה-type
+          isTicketUpdated = context.event.type === 'ticket_updated';
+        }
+        
         return (
-          context.event === 'ticket_updated' &&
+          isTicketUpdated &&
           context.previousStatus !== context.currentStatus &&
           (!trigger.conditions?.status || trigger.conditions.status === context.currentStatus)
         );

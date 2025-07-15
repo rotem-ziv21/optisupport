@@ -787,7 +787,7 @@ class TicketService {
         }).length,
         avg_response_time: avgResolutionTime,
         satisfaction_score: satisfactionScore,
-        high_risk_tickets: mockTickets.filter(t => t.risk_level === 'high' && t.status !== 'resolved' && t.status !== 'closed').length,
+        high_risk_tickets: mockTickets.filter(t => (t.risk_level === 'high' || t.priority === 'high' || t.priority === 'urgent') && t.status !== 'resolved' && t.status !== 'closed').length,
         ai_accuracy: await this.calculateAIAccuracy()
       };
     }
@@ -807,7 +807,7 @@ class TicketService {
       supabase.from('tickets').select('id', { count: 'exact' }).eq('status', 'open'),
       supabase.from('tickets').select('id', { count: 'exact' }).eq('status', 'in_progress'),
       supabase.from('tickets').select('id', { count: 'exact' }).in('status', ['resolved', 'closed']).gte('updated_at', `${today}T00:00:00`),
-      supabase.from('tickets').select('id', { count: 'exact' }).eq('risk_level', 'high').not('status', 'in', '(resolved,closed)'),
+      supabase.from('tickets').select('id', { count: 'exact' }).or('risk_level.eq.high,priority.eq.high,priority.eq.urgent').neq('status', 'resolved').neq('status', 'closed'),
       this.calculateAverageResolutionTime(),
       this.calculateSatisfactionScore()
     ]);

@@ -28,6 +28,8 @@ export interface Ticket {
   solution?: string; // Solution provided by the agent
   agent_actions?: string | AgentAction[]; // Support both string (legacy) and array of actions
   conversation: Message[];
+  has_unread_customer_messages?: boolean; // האם יש הודעות לקוח שלא נקראו
+  has_unread_agent_messages?: boolean; // האם יש הודעות נציג שלא נקראו
 }
 
 export interface Message {

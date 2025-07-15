@@ -164,6 +164,29 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
       // Reset new action input
       setNewAgentAction('');
       
+      // סימון הודעות לקוח כנקראות כאשר נציג פותח את הכרטיס
+      if (ticket.has_unread_customer_messages) {
+        console.log('Marking customer messages as read for ticket:', ticket.id);
+        try {
+          ticketService.markMessagesAsRead(ticket.id)
+            .then(() => {
+              // עדכון המצב המקומי
+              setCurrentTicket(prev => prev ? {...prev, has_unread_customer_messages: false} : null);
+              // עדכון הממשק הראשי
+              if (onTicketUpdated) {
+                onTicketUpdated();
+              }
+            })
+            .catch(error => {
+              console.error('Failed to mark messages as read:', error);
+              // עדיין נעדכן את המצב המקומי גם אם העדכון בשרת נכשל
+              setCurrentTicket(prev => prev ? {...prev, has_unread_customer_messages: false} : null);
+            });
+        } catch (error) {
+          console.error('Error marking messages as read:', error);
+        }
+      }
+      
       // Load other data
       loadSuggestedReplies();
       if (!solutionGenerated) {

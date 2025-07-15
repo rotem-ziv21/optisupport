@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ticketService } from '../services/ticketService';
 import { Ticket, Message } from '../types';
@@ -9,6 +9,14 @@ import {
   ChatBubbleLeftRightIcon,
   ArrowLeftIcon,
   PaperAirplaneIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  BuildingOfficeIcon,
+  CheckCircleIcon,
+  ChevronDownIcon,
+  TagIcon,
+  ExclamationCircleIcon,
+  DocumentDuplicateIcon,
 } from '@heroicons/react/24/outline';
 
 export const TicketDetail: React.FC = () => {
@@ -18,6 +26,10 @@ export const TicketDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [replyContent, setReplyContent] = useState('');
   const [sending, setSending] = useState(false);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showFullCustomerInfo, setShowFullCustomerInfo] = useState(false);
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -36,6 +48,26 @@ export const TicketDetail: React.FC = () => {
 
     fetchTicket();
   }, [id]);
+  
+  // Scroll to bottom of messages when conversation updates
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [ticket?.conversation]);
+  
+  // Update document title when ticket loads
+  useEffect(() => {
+    if (ticket) {
+      document.title = `כרטיס #${ticket.id} - ${ticket.title} | OptiSupport`;
+    } else {
+      document.title = 'פרטי כרטיס | OptiSupport';
+    }
+    
+    return () => {
+      document.title = 'OptiSupport';
+    };
+  }, [ticket]);
 
   const handleSendReply = async () => {
     if (!ticket || !replyContent.trim() || sending) return;
@@ -73,34 +105,32 @@ export const TicketDetail: React.FC = () => {
       setSending(false);
     }
   };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'open':
-        return 'bg-blue-100 text-blue-700';
-      case 'in_progress':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'resolved':
-        return 'bg-green-100 text-green-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
+  
+  const handleStatusChange = async (newStatus: 'open' | 'in_progress' | 'resolved') => {
+    if (!ticket || updatingStatus || ticket.status === newStatus) return;
+    
+    try {
+      setUpdatingStatus(true);
+      setStatusDropdownOpen(false);
+      
+      await ticketService.updateTicket(ticket.id, { status: newStatus });
+      
+      // Refresh ticket data
+      const updatedTicket = await ticketService.getTicket(ticket.id);
+      if (updatedTicket) {
+        setTicket(updatedTicket);
+      }
+    } catch (error) {
+      console.error('Failed to update ticket status:', error);
+    } finally {
+      setUpdatingStatus(false);
     }
   };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent':
-        return 'bg-red-100 text-red-700';
-      case 'high':
-        return 'bg-orange-100 text-orange-700';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-700';
-      case 'low':
-        return 'bg-green-100 text-green-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
+  
+  const insertQuickReply = (replyTemplate: string) => {
+    setReplyContent(prev => prev + (prev ? '\n' : '') + replyTemplate);
   };
+
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -116,7 +146,10 @@ export const TicketDetail: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="relative">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-100 border-t-blue-600 shadow-lg"></div>
+          <div className="absolute inset-0 animate-pulse rounded-full h-16 w-16 bg-blue-50 opacity-20"></div>
+        </div>
       </div>
     );
   }
@@ -137,126 +170,324 @@ export const TicketDetail: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => navigate(-1)}
-          className="inline-flex items-center text-blue-600 hover:text-blue-800"
-        >
-          <ArrowLeftIcon className="h-5 w-5 ml-1" />
-          חזרה
-        </button>
-        <div className="flex space-x-2 space-x-reverse">
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(ticket.status)}`}>
-            {ticket.status === 'open' ? 'פתוח' :
-             ticket.status === 'in_progress' ? 'בטיפול' : 'נפתר'}
-          </span>
-          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(ticket.priority)}`}>
-            {ticket.priority === 'urgent' ? 'דחוף' :
-             ticket.priority === 'high' ? 'גבוה' :
-             ticket.priority === 'medium' ? 'בינוני' : 'נמוך'}
-          </span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 overflow-x-hidden">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        <div className="mb-8">
+          <button
+            onClick={() => navigate(-1)}
+            className="group inline-flex items-center text-slate-600 hover:text-blue-600 transition-all duration-200 bg-white/70 hover:bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-sm hover:shadow-md"
+          >
+            <ArrowLeftIcon className="h-5 w-5 ml-1 transition-transform group-hover:-translate-x-1" />
+            <span className="font-medium">חזרה</span>
+          </button>
         </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h1 className="text-2xl font-bold text-gray-900">{ticket.title}</h1>
         
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="flex items-center">
-            <UserCircleIcon className="h-5 w-5 text-gray-400 ml-2" />
-            <span className="text-gray-600">לקוח: </span>
-            <span className="font-medium text-gray-900 mr-1">{ticket.customer_name}</span>
-          </div>
-          <div className="flex items-center">
-            <ClockIcon className="h-5 w-5 text-gray-400 ml-2" />
-            <span className="text-gray-600">נפתח: </span>
-            <span className="font-medium text-gray-900 mr-1">{formatDate(ticket.created_at)}</span>
-          </div>
-          {ticket.category && (
-            <div className="flex items-center">
-              <TicketIcon className="h-5 w-5 text-gray-400 ml-2" />
-              <span className="text-gray-600">קטגוריה: </span>
-              <span className="font-medium text-gray-900 mr-1">{ticket.category}</span>
-            </div>
-          )}
-          {ticket.assigned_to && (
-            <div className="flex items-center">
-              <UserCircleIcon className="h-5 w-5 text-gray-400 ml-2" />
-              <span className="text-gray-600">מטפל: </span>
-              <span className="font-medium text-gray-900 mr-1">{ticket.assigned_to}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="font-medium text-gray-900 mb-2">תיאור הבעיה</h3>
-          <p className="text-gray-700 whitespace-pre-wrap">{ticket.description}</p>
-        </div>
-
-        <div className="mt-8">
-          <div className="flex items-center mb-4">
-            <ChatBubbleLeftRightIcon className="h-5 w-5 text-gray-600 ml-2" />
-            <h3 className="font-medium text-gray-900">שיחה</h3>
-          </div>
-
-          <div className="space-y-4 max-h-96 overflow-y-auto p-2">
-            {ticket.conversation && ticket.conversation.length > 0 ? (
-              ticket.conversation.map((message: Message, index) => (
-                <div 
-                  key={index}
-                  className={`p-4 rounded-lg ${
-                    message.sender === 'agent' 
-                      ? 'bg-blue-50 border-blue-100 mr-8'
-                      : 'bg-gray-50 border-gray-100 ml-8'
-                  }`}
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-medium text-gray-900">
-                      {message.sender_name}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {formatDate(message.created_at)}
-                    </span>
-                  </div>
-                  <p className="text-gray-700">{message.content}</p>
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl font-bold text-white mb-2 break-words">{ticket.title}</h1>
+                <div className="flex items-center">
+                  <p className="text-blue-100 text-sm opacity-90">כרטיס מספר #{ticket.id}</p>
+                  <button 
+                    onClick={() => {
+                      navigator.clipboard.writeText(ticket.id);
+                      alert('מזהה הכרטיס הועתק ללוח');
+                    }}
+                    className="ml-2 text-blue-200 hover:text-white transition-colors"
+                    title="העתק מזהה כרטיס"
+                  >
+                    <DocumentDuplicateIcon className="h-4 w-4" />
+                  </button>
                 </div>
-              ))
-            ) : (
-              <p className="text-center text-gray-500 py-4">אין הודעות בשיחה זו</p>
-            )}
+              </div>
+              <div className="flex flex-wrap gap-2 sm:gap-3">
+                <div className="relative">
+                  <button 
+                    onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
+                    disabled={updatingStatus}
+                    className={`inline-flex items-center px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold shadow-lg backdrop-blur-sm whitespace-nowrap transition-all duration-200 ${
+                      updatingStatus ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-xl'
+                    } ${ticket.status === 'open' ? 'bg-blue-100/90 text-blue-800' :
+                      ticket.status === 'in_progress' ? 'bg-yellow-100/90 text-yellow-800' : 'bg-green-100/90 text-green-800'
+                    }`}
+                  >
+                    {updatingStatus ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-current border-t-transparent ml-2"></div>
+                        <span>מעדכן...</span>
+                      </>
+                    ) : (
+                      <>
+                        {ticket.status === 'open' ? 'פתוח' :
+                         ticket.status === 'in_progress' ? 'בטיפול' : 'נפתר'}
+                        <ChevronDownIcon className="h-4 w-4 mr-1 ml-0" />
+                      </>
+                    )}
+                  </button>
+                  
+                  {statusDropdownOpen && (
+                    <div className="absolute left-0 mt-2 w-40 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                      <div className="py-1" role="menu" aria-orientation="vertical">
+                        <button
+                          onClick={() => handleStatusChange('open')}
+                          className={`w-full text-right px-4 py-2 text-sm ${ticket.status === 'open' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700 hover:bg-blue-50'}`}
+                          role="menuitem"
+                        >
+                          <span className="flex items-center">
+                            <ExclamationCircleIcon className="h-4 w-4 ml-2 text-blue-600" />
+                            פתוח
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange('in_progress')}
+                          className={`w-full text-right px-4 py-2 text-sm ${ticket.status === 'in_progress' ? 'bg-yellow-50 text-yellow-700 font-medium' : 'text-gray-700 hover:bg-yellow-50'}`}
+                          role="menuitem"
+                        >
+                          <span className="flex items-center">
+                            <DocumentDuplicateIcon className="h-4 w-4 ml-2 text-yellow-600" />
+                            בטיפול
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange('resolved')}
+                          className={`w-full text-right px-4 py-2 text-sm ${ticket.status === 'resolved' ? 'bg-green-50 text-green-700 font-medium' : 'text-gray-700 hover:bg-green-50'}`}
+                          role="menuitem"
+                        >
+                          <span className="flex items-center">
+                            <CheckCircleIcon className="h-4 w-4 ml-2 text-green-600" />
+                            נפתר
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className={`px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold shadow-lg backdrop-blur-sm whitespace-nowrap ${
+                  ticket.priority === 'urgent' ? 'bg-red-100/90 text-red-800' :
+                  ticket.priority === 'high' ? 'bg-orange-100/90 text-orange-800' :
+                  ticket.priority === 'medium' ? 'bg-yellow-100/90 text-yellow-800' : 'bg-green-100/90 text-green-800'
+                }`}>
+                  {ticket.priority === 'urgent' ? 'דחוף' :
+                   ticket.priority === 'high' ? 'גבוה' :
+                   ticket.priority === 'medium' ? 'בינוני' : 'נמוך'}
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="mt-6">
-            <h3 className="font-medium text-gray-900 mb-2">הוסף תגובה</h3>
-            <div className="flex">
-              <textarea
-                className="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                rows={3}
-                placeholder="כתוב את תגובתך כאן..."
-                value={replyContent}
-                onChange={(e) => setReplyContent(e.target.value)}
-              />
-            </div>
-            <div className="mt-2 flex justify-end">
-              <button
-                onClick={handleSendReply}
-                disabled={!replyContent.trim() || sending}
-                className={`inline-flex items-center px-4 py-2 rounded-md ${
-                  !replyContent.trim() || sending
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                {sending ? (
-                  <span className="ml-2">שולח...</span>
-                ) : (
-                  <>
-                    <PaperAirplaneIcon className="h-5 w-5 ml-2" />
-                    שלח תגובה
-                  </>
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100 relative">
+                <div className="flex items-center mb-2">
+                  <UserCircleIcon className="h-5 w-5 text-blue-600 ml-2 flex-shrink-0" />
+                  <span className="text-blue-700 font-medium truncate">לקוח</span>
+                  <button 
+                    onClick={() => setShowFullCustomerInfo(!showFullCustomerInfo)}
+                    className="absolute top-2 left-2 text-blue-600 hover:text-blue-800 transition-colors"
+                    title={showFullCustomerInfo ? "הסתר פרטים" : "הצג פרטים נוספים"}
+                  >
+                    <ChevronDownIcon className={`h-5 w-5 transition-transform ${showFullCustomerInfo ? 'rotate-180' : ''}`} />
+                  </button>
+                </div>
+                <p className="text-slate-800 font-semibold text-sm sm:text-base break-words">{ticket.customer_name}</p>
+                
+                {showFullCustomerInfo && (
+                  <div className="mt-3 pt-3 border-t border-blue-100 space-y-2">
+                    {ticket.customer_email && (
+                      <div className="flex items-center text-sm">
+                        <EnvelopeIcon className="h-4 w-4 text-blue-600 ml-2 flex-shrink-0" />
+                        <a href={`mailto:${ticket.customer_email}`} className="text-blue-700 hover:underline break-all">
+                          {ticket.customer_email}
+                        </a>
+                      </div>
+                    )}
+                    
+                    {ticket.customer_phone && (
+                      <div className="flex items-center text-sm">
+                        <PhoneIcon className="h-4 w-4 text-blue-600 ml-2 flex-shrink-0" />
+                        <a href={`tel:${ticket.customer_phone}`} className="text-blue-700 hover:underline">
+                          {ticket.customer_phone}
+                        </a>
+                      </div>
+                    )}
+                    
+                    {ticket.company_name && (
+                      <div className="flex items-center text-sm">
+                        <BuildingOfficeIcon className="h-4 w-4 text-blue-600 ml-2 flex-shrink-0" />
+                        <span className="text-slate-700">{ticket.company_name}</span>
+                      </div>
+                    )}
+                  </div>
                 )}
-              </button>
+              </div>
+              
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-100">
+                <div className="flex items-center mb-2">
+                  <ClockIcon className="h-5 w-5 text-emerald-600 ml-2 flex-shrink-0" />
+                  <span className="text-emerald-700 font-medium truncate">נפתח</span>
+                </div>
+                <p className="text-slate-800 font-semibold text-sm sm:text-base break-words">{formatDate(ticket.created_at)}</p>
+              </div>
+              
+              {ticket.category && (
+                <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl p-4 border border-purple-100">
+                  <div className="flex items-center mb-2">
+                    <TicketIcon className="h-5 w-5 text-purple-600 ml-2 flex-shrink-0" />
+                    <span className="text-purple-700 font-medium truncate">קטגוריה</span>
+                  </div>
+                  <p className="text-slate-800 font-semibold text-sm sm:text-base break-words">{ticket.category}</p>
+                </div>
+              )}
+              
+              {ticket.assigned_to && (
+                <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl p-4 border border-orange-100">
+                  <div className="flex items-center mb-2">
+                    <UserCircleIcon className="h-5 w-5 text-orange-600 ml-2 flex-shrink-0" />
+                    <span className="text-orange-700 font-medium truncate">מטפל</span>
+                  </div>
+                  <p className="text-slate-800 font-semibold text-sm sm:text-base break-words">{ticket.assigned_to}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-xl p-4 sm:p-6 border border-slate-200 mb-6 sm:mb-8">
+              <h3 className="font-semibold text-slate-800 mb-3 flex items-center">
+                <div className="w-2 h-2 bg-blue-600 rounded-full ml-2 flex-shrink-0"></div>
+                <span className="truncate">תיאור הבעיה</span>
+              </h3>
+              <div className="bg-white/50 p-4 rounded-lg border border-slate-100 shadow-inner">
+                <p className="text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{ticket.description}</p>
+              </div>
+              <div className="mt-4 text-xs text-slate-500 flex items-center justify-end">
+                <span>נוצר בתאריך: {formatDate(ticket.created_at)}</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200">
+              <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-4 sm:px-6 py-4 border-b border-slate-200">
+                <div className="flex items-center">
+                  <ChatBubbleLeftRightIcon className="h-6 w-6 text-blue-600 ml-2 flex-shrink-0" />
+                  <h3 className="font-semibold text-slate-800 truncate">שיחה</h3>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-6">
+                <div className="space-y-4 max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-slate-100 pr-2 conversation-container">
+                  {ticket.conversation && ticket.conversation.length > 0 ? (
+                    <>
+                      {ticket.conversation.map((message: Message, index) => (
+                        <div 
+                          key={index}
+                          className={`group transition-all duration-200 ${
+                            message.sender === 'agent' 
+                              ? 'flex justify-end'
+                              : 'flex justify-start'
+                          }`}
+                        >
+                          <div className={`max-w-[85%] sm:max-w-md lg:max-w-lg xl:max-w-xl p-3 sm:p-4 rounded-2xl shadow-sm border hover:shadow-md transition-shadow ${
+                            message.sender === 'agent' 
+                              ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white border-blue-200'
+                              : 'bg-white border-slate-200 text-slate-700'
+                          }`}>
+                            <div className="flex justify-between items-start gap-2 mb-2">
+                              <span className={`font-medium text-sm flex-shrink-0 ${
+                                message.sender === 'agent' ? 'text-blue-100' : 'text-slate-600'
+                              }`}>
+                                {message.sender_name}
+                              </span>
+                              <span className={`text-xs whitespace-nowrap ${
+                                message.sender === 'agent' ? 'text-blue-200' : 'text-slate-500'
+                              }`}>
+                                {formatDate(message.created_at)}
+                              </span>
+                            </div>
+                            <p className={`leading-relaxed text-sm sm:text-base break-words whitespace-pre-wrap ${
+                              message.sender === 'agent' ? 'text-white' : 'text-slate-700'
+                            }`}>{message.content}</p>
+                          </div>
+                        </div>
+                      ))}
+                      <div ref={messagesEndRef} /> {/* Reference element for auto-scrolling */}
+                    </>
+                  ) : (
+                    <div className="text-center py-12">
+                      <ChatBubbleLeftRightIcon className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+                      <p className="text-slate-500">אין הודעות בשיחה זו</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-200">
+              <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-4 sm:px-6 py-4 border-b border-slate-200">
+                <h3 className="font-semibold text-slate-800 truncate">הוסף תגובה</h3>
+              </div>
+              
+              <div className="p-4 sm:p-6">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <button 
+                      onClick={() => insertQuickReply("תודה על פנייתך. אנחנו בודקים את הנושא ונחזור אליך בהקדם.")} 
+                      className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs border border-blue-200 hover:bg-blue-100 transition-colors"
+                    >
+                      <TagIcon className="h-3.5 w-3.5 inline-block ml-1" />
+                      אישור קבלה
+                    </button>
+                    <button 
+                      onClick={() => insertQuickReply("הבעיה נפתרה. האם אתה יכול לאשר שהכל עובד כראוי?")} 
+                      className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs border border-green-200 hover:bg-green-100 transition-colors"
+                    >
+                      <CheckCircleIcon className="h-3.5 w-3.5 inline-block ml-1" />
+                      אישור פתרון
+                    </button>
+                    <button 
+                      onClick={() => insertQuickReply("אנחנו צריכים מידע נוסף כדי לטפל בבעיה. האם תוכל לפרט יותר?")} 
+                      className="px-3 py-1.5 bg-yellow-50 text-yellow-700 rounded-lg text-xs border border-yellow-200 hover:bg-yellow-100 transition-colors"
+                    >
+                      <ExclamationCircleIcon className="h-3.5 w-3.5 inline-block ml-1" />
+                      בקשת מידע
+                    </button>
+                  </div>
+                  
+                  <textarea
+                    className="w-full p-3 sm:p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all duration-200 bg-slate-50 hover:bg-white focus:bg-white text-sm sm:text-base"
+                    rows={4}
+                    placeholder="כתוב את תגובתך כאן..."
+                    value={replyContent}
+                    onChange={(e) => setReplyContent(e.target.value)}
+                  />
+                  
+                  <div className="flex justify-between items-center">
+                    <div className="text-xs text-slate-500">
+                      <span className="ml-1">טיפ:</span> לחץ על אחת התגובות המהירות למעלה או כתוב תגובה מותאמת אישית
+                    </div>
+                    
+                    <button
+                      onClick={handleSendReply}
+                      disabled={!replyContent.trim() || sending}
+                      className={`inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-medium transition-all duration-200 text-sm sm:text-base ${
+                        !replyContent.trim() || sending
+                          ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-md hover:shadow-lg transform hover:-translate-y-0.5'
+                      }`}
+                    >
+                      {sending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-2 border-white border-t-transparent ml-2"></div>
+                          <span>שולח...</span>
+                        </>
+                      ) : (
+                        <>
+                          <PaperAirplaneIcon className="h-4 w-4 sm:h-5 sm:w-5 ml-2" />
+                          <span className="whitespace-nowrap">שלח תגובה</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

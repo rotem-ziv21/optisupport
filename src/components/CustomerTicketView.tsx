@@ -44,6 +44,20 @@ export function CustomerTicketView() {
           setError('הכרטיס לא נמצא או שאין לך הרשאות לצפות בו');
         } else {
           setTicket(ticketData);
+          
+          // סימון הודעות נציג כנקראות כאשר הלקוח צופה בכרטיס
+          if (ticketData.has_unread_agent_messages) {
+            try {
+              console.log('Marking agent messages as read for ticket:', ticketData.id);
+              await ticketService.markAgentMessagesAsRead(ticketData.id);
+              // עדכון הכרטיס המקומי
+              setTicket(prev => prev ? {...prev, has_unread_agent_messages: false} : null);
+            } catch (error) {
+              console.error('Failed to mark agent messages as read:', error);
+              // נעדכן את המצב המקומי גם אם העדכון בשרת נכשל
+              setTicket(prev => prev ? {...prev, has_unread_agent_messages: false} : null);
+            }
+          }
         }
       } catch (err) {
         console.error('Failed to fetch ticket:', err);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import clsx from 'clsx';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ticketService } from '../services/ticketService';
 import { knowledgeBaseService } from '../services/knowledgeBaseService';
@@ -23,6 +24,11 @@ import {
   DocumentTextIcon,
   XCircleIcon,
   PencilIcon,
+  FaceSmileIcon,
+  FaceFrownIcon,
+  ShieldExclamationIcon,
+  ShieldCheckIcon,
+  LightBulbIcon,
 } from '@heroicons/react/24/outline';
 
 // פונקציית עזר פשוטה להצגת התראות
@@ -58,7 +64,7 @@ export const TicketDetail: React.FC = () => {
   const [autoSolution, setAutoSolution] = useState<string | null>(null);
   const [solutionLoading, setSolutionLoading] = useState(false);
   const [showAutoSolution, setShowAutoSolution] = useState(false);
-  const [solutionGenerated, setSolutionGenerated] = useState(false); // משמש לסימון שנוצר פתרון
+
   const [regeneratingSolution, setRegeneratingSolution] = useState(false);
   const [searchingSolutions, setSearchingSolutions] = useState(false);
   const [searchingKnowledgeBase, setSearchingKnowledgeBase] = useState(false);
@@ -73,13 +79,17 @@ export const TicketDetail: React.FC = () => {
   }
   
   const [enhancedSolutionSources, setEnhancedSolutionSources] = useState<SolutionSource[]>([]);
-  const [enhancedSolutionConfidence, setEnhancedSolutionConfidence] = useState<number>(0); // ציון האמינות של הפתרון
   const [editingSolution, setEditingSolution] = useState(false); // מצב עריכת פתרון
-  const [solution, setSolution] = useState<string>(''); // הפתרון הנוכחי
   
   // משתנים לפתרון ידני על ידי הנציג
   const [agentSolution, setAgentSolution] = useState<string>('');
   const [savingSolution, setSavingSolution] = useState(false);
+  
+  // משתנים לניתוח AI
+  const [aiSummary, setAiSummary] = useState<string>('');
+  const [sentimentScore, setSentimentScore] = useState<number>(0);
+  const [riskScore, setRiskScore] = useState<number>(0);
+  const [aiAnalysisLoading, setAiAnalysisLoading] = useState(false);
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -93,6 +103,7 @@ export const TicketDetail: React.FC = () => {
         // טעינת תגובות מוצעות ופתרונות אוטומטיים לאחר טעינת הכרטיס
         if (ticketData) {
           loadSuggestedReplies(ticketData);
+          loadAiAnalysis(ticketData);
         }
       } catch (error) {
         console.error('Failed to fetch ticket:', error);
@@ -104,6 +115,70 @@ export const TicketDetail: React.FC = () => {
     fetchTicket();
   }, [id]);
   
+  // פונקציות עזר לניתוח סנטימנט
+  const getSentimentIcon = (score: number) => {
+    if (score > 0.3) return FaceSmileIcon;
+    if (score < -0.3) return FaceFrownIcon;
+    return FaceSmileIcon;
+  };
+
+  const getSentimentColor = (score: number) => {
+    if (score > 0.3) return 'text-green-600';
+    if (score < -0.3) return 'text-red-600';
+    return 'text-yellow-600';
+  };
+
+  const getSentimentLabel = (score: number) => {
+    if (score > 0.3) return 'חיובי';
+    if (score < -0.3) return 'שלילי';
+    return 'ניטרלי';
+  };
+
+  const getRiskIcon = (score: number) => {
+    return score > 0.5 ? ShieldExclamationIcon : ShieldCheckIcon;
+  };
+
+  const getRiskColor = (score: number) => {
+    return score > 0.5 ? 'text-red-600' : 'text-green-600';
+  };
+
+  const getRiskLabel = (score: number) => {
+    return score > 0.5 ? 'גבוה' : 'נמוך';
+  };
+
+  // פונקציה לטעינת ניתוח AI
+  const loadAiAnalysis = async (currentTicket: Ticket) => {
+    try {
+      setAiAnalysisLoading(true);
+      
+      // בדיקה אם יש כבר ניתוח AI בכרטיס
+      if (currentTicket.ai_summary) {
+        setAiSummary(currentTicket.ai_summary);
+      } else {
+        // אם אין, יוצרים סיכום ברירת מחדל
+        const defaultSummary = `הלקוח פנה בנושא ${currentTicket.category || 'לא מוגדר'} ברמת עדיפות ${currentTicket.priority || 'לא מוגדרת'}. הכרטיס נמצא כעת בסטטוס ${currentTicket.status || 'לא מוגדר'}.`;
+        setAiSummary(defaultSummary);
+      }
+      
+      // בדיקה אם יש ציון סנטימנט בכרטיס
+      if (currentTicket.sentiment_score !== undefined) {
+        setSentimentScore(currentTicket.sentiment_score);
+      }
+      
+      // בדיקה אם יש ציון סיכון בכרטיס
+      if (currentTicket.risk_score !== undefined) {
+        setRiskScore(currentTicket.risk_score);
+      } else {
+        // ברירת מחדל לציון סיכון
+        setRiskScore(0.2);
+      }
+    } catch (error) {
+      console.error('Failed to load AI analysis:', error);
+    } finally {
+      setAiAnalysisLoading(false);
+    }
+  };
+
   // פונקציה לטעינת תגובות מוצעות
   const loadSuggestedReplies = async (currentTicket: Ticket) => {
     try {
@@ -124,11 +199,8 @@ export const TicketDetail: React.FC = () => {
       const ticketContent = `${ticket.title} ${ticket.description}`;
       const result = await enhancedSolutionService.findBestSolution(ticketContent);
       
-      setSolution(result.solution);
       setEnhancedSolutionSources(result.sources);
-      setEnhancedSolutionConfidence(result.confidence_score);
       setAutoSolution(result.solution);
-      setSolutionGenerated(true);
       setShowAutoSolution(true);
       
       toast.success('נוצר פתרון אוטומטי');
@@ -149,9 +221,7 @@ export const TicketDetail: React.FC = () => {
       const ticketContent = `${ticket.title} ${ticket.description}`;
       const result = await enhancedSolutionService.findBestSolution(ticketContent);
       
-      setSolution(result.solution);
       setEnhancedSolutionSources(result.sources);
-      setEnhancedSolutionConfidence(result.confidence_score);
       setAutoSolution(result.solution);
       
       toast.success('הפתרון האוטומטי חודש');
@@ -185,13 +255,10 @@ export const TicketDetail: React.FC = () => {
           const bestTicketSource = ticketSources[0];
           
           // שימוש בתוכן המקור במקום הפתרון המשולב
-          setSolution(bestTicketSource.content);
           // הצגת רק מקורות מכרטיסים קודמים
           setEnhancedSolutionSources(ticketSources);
-          setEnhancedSolutionConfidence(bestTicketSource.relevance_score);
           setEditingSolution(true);
           setAutoSolution(bestTicketSource.content);
-          setSolutionGenerated(true);
           setShowAutoSolution(true);
           toast.success('נמצא פתרון דומה מקריאות קודמות');
         } else {
@@ -220,7 +287,6 @@ export const TicketDetail: React.FC = () => {
       // עדכון הממשק
       setAutoSolution(agentSolution);
       setShowAutoSolution(true);
-      setSolutionGenerated(true);
       setAgentSolution('');
       toast.success('הפתרון נשמר בהצלחה');
     } catch (error) {
@@ -259,11 +325,8 @@ export const TicketDetail: React.FC = () => {
         
         // שימוש בפתרון שנמצא
         const foundSolution = bestResult.chunk.content;
-        setSolution(foundSolution);
         setEnhancedSolutionSources(sources);
-        setEnhancedSolutionConfidence(bestResult.similarity_score);
         setAutoSolution(foundSolution);
-        setSolutionGenerated(true);
         setShowAutoSolution(true);
         toast.success('נמצא פתרון ממאגר הידע');
       } else {
@@ -656,6 +719,102 @@ export const TicketDetail: React.FC = () => {
               </div>
             </div>
 
+            {/* AI Analysis Sidebar */}
+            <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 px-4 sm:px-6 py-4 border-b border-slate-200">
+                <div className="flex items-center">
+                  <LightBulbIcon className="h-6 w-6 text-indigo-600 ml-2 flex-shrink-0" />
+                  <h3 className="font-semibold text-slate-800 truncate">ניתוח AI</h3>
+                </div>
+              </div>
+              
+              <div className="p-4 sm:p-6 space-y-6">
+                {/* AI Summary */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-slate-700 flex items-center">
+                    <SparklesIcon className="h-4 w-4 ml-1 text-indigo-600" />
+                    סיכום אוטומטי
+                  </h4>
+                  <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-3 rounded-lg border border-indigo-100 text-sm text-slate-700">
+                    {aiAnalysisLoading ? (
+                      <div className="flex justify-center py-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-indigo-500 border-t-transparent"></div>
+                      </div>
+                    ) : (
+                      aiSummary || 'הלקוח פנה בנושא לא מוגדר ברמת עדיפות לא מוגדרת. הכרטיס נמצא כעת בסטטוס לא מוגדר.'
+                    )}
+                  </div>
+                </div>
+                
+                {/* Sentiment Analysis */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-slate-700 flex items-center">
+                    {React.createElement(getSentimentIcon(sentimentScore), {
+                      className: clsx('h-4 w-4 ml-1', getSentimentColor(sentimentScore))
+                    })}
+                    ניתוח סנטימנט
+                  </h4>
+                  <div className="bg-white p-3 rounded-lg border border-slate-200">
+                    {aiAnalysisLoading ? (
+                      <div className="flex justify-center py-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-indigo-500 border-t-transparent"></div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className={clsx('text-sm font-semibold', getSentimentColor(sentimentScore))}>
+                            {getSentimentLabel(sentimentScore)}
+                          </span>
+                          <span className="text-xs text-slate-500">ציון: {sentimentScore.toFixed(2)}</span>
+                        </div>
+                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className={clsx(
+                              'h-full rounded-full', 
+                              sentimentScore > 0 ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-red-500 to-pink-500'
+                            )}
+                            style={{ width: `${Math.abs(sentimentScore) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Risk Assessment */}
+                <div className="space-y-2">
+                  <h4 className="text-sm font-medium text-slate-700 flex items-center">
+                    {React.createElement(getRiskIcon(riskScore), {
+                      className: clsx('h-4 w-4 ml-1', getRiskColor(riskScore))
+                    })}
+                    הערכת סיכון
+                  </h4>
+                  <div className="bg-white p-3 rounded-lg border border-slate-200">
+                    {aiAnalysisLoading ? (
+                      <div className="flex justify-center py-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-indigo-500 border-t-transparent"></div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className={clsx('text-sm font-semibold', getRiskColor(riskScore))}>
+                            {getRiskLabel(riskScore)}
+                          </span>
+                          <span className="text-xs text-slate-500">ציון: {riskScore.toFixed(2)}</span>
+                        </div>
+                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full bg-gradient-to-r from-green-500 to-red-500"
+                            style={{ width: `${riskScore * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div className="mt-6 bg-white rounded-xl shadow-sm border border-slate-200">
               <div className="bg-gradient-to-r from-slate-50 to-blue-50 px-4 sm:px-6 py-4 border-b border-slate-200">
                 <h3 className="font-semibold text-slate-800 truncate">הוסף תגובה</h3>

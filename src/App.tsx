@@ -12,6 +12,7 @@ import { CustomerTicketView } from './components/CustomerTicketView';
 import { Login } from './components/Login';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
+import { TeamManagement } from './components/TeamManagement';
 
 function App() {
   return (
@@ -66,10 +67,7 @@ function App() {
           <Route path="/team" element={
             <ProtectedRoute>
               <Layout>
-                <div className="text-center py-12">
-                  <h2 className="text-2xl font-bold text-gray-900">ניהול צוות</h2>
-                  <p className="text-gray-500 mt-2">בקרוב...</p>
-                </div>
+                <TeamManagement />
               </Layout>
             </ProtectedRoute>
           } />

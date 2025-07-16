@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   TicketIcon,
   FunnelIcon,
@@ -17,7 +18,6 @@ import { Ticket } from '../types';
 import { ticketService } from '../services/ticketService';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { NewTicketModal } from './NewTicketModal';
-import { TicketDetailModal } from './TicketDetailModal';
 
 const priorityColors = {
   low: 'bg-green-100 text-green-800',
@@ -244,13 +244,12 @@ const FilterBar = ({ filters, onFilterChange }: {
   );
 };
 
-export function TicketList() {
+export const TicketList: React.FC = () => {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({});
-  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const fetchTickets = async () => {
     try {
@@ -269,20 +268,9 @@ export function TicketList() {
     fetchTickets();
   }, [filters]);
 
-  const handleTicketClick = async (ticket: Ticket) => {
-    try {
-      // Fetch full ticket details including conversation
-      const fullTicket = await ticketService.getTicket(ticket.id);
-      if (fullTicket) {
-        setSelectedTicket(fullTicket);
-        setIsDetailModalOpen(true);
-      }
-    } catch (error) {
-      console.error('Failed to fetch ticket details:', error);
-      // Fallback to basic ticket data
-      setSelectedTicket(ticket);
-      setIsDetailModalOpen(true);
-    }
+  const handleTicketClick = (ticket: Ticket) => {
+    // נווט לדף הכרטיס המלא
+    navigate(`/tickets/${ticket.id}`);
   };
 
   const handleNewTicket = () => {
@@ -291,11 +279,6 @@ export function TicketList() {
 
   const handleTicketCreated = () => {
     fetchTickets(); // Refresh the ticket list
-  };
-
-  const handleTicketUpdated = () => {
-    fetchTickets(); // Refresh the ticket list
-    setIsDetailModalOpen(false);
   };
 
   return (
@@ -352,13 +335,6 @@ export function TicketList() {
         isOpen={isNewTicketModalOpen}
         onClose={() => setIsNewTicketModalOpen(false)}
         onTicketCreated={handleTicketCreated}
-      />
-
-      <TicketDetailModal
-        ticket={selectedTicket}
-        isOpen={isDetailModalOpen}
-        onClose={() => setIsDetailModalOpen(false)}
-        onTicketUpdated={handleTicketUpdated}
       />
     </div>
   );

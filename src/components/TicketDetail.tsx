@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ticketService } from '../services/ticketService';
+import { knowledgeBaseService } from '../services/knowledgeBaseService';
+import { enhancedSolutionService } from '../services/enhancedSolutionService';
 import { Ticket, Message } from '../types';
 import {
   TicketIcon,
@@ -17,7 +19,27 @@ import {
   TagIcon,
   ExclamationCircleIcon,
   DocumentDuplicateIcon,
+  SparklesIcon,
+  DocumentTextIcon,
+  XCircleIcon,
+  PencilIcon,
 } from '@heroicons/react/24/outline';
+
+// פונקציית עזר פשוטה להצגת התראות
+const toast = {
+  success: (message: string) => {
+    console.log('Success:', message);
+    alert(message);
+  },
+  error: (message: string) => {
+    console.error('Error:', message);
+    alert(message);
+  },
+  info: (message: string) => {
+    console.log('Info:', message);
+    alert(message);
+  }
+};
 
 export const TicketDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,6 +52,34 @@ export const TicketDetail: React.FC = () => {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showFullCustomerInfo, setShowFullCustomerInfo] = useState(false);
+  
+  // משתנים לתכונות AI
+  const [suggestedReplies, setSuggestedReplies] = useState<string[]>([]);
+  const [autoSolution, setAutoSolution] = useState<string | null>(null);
+  const [solutionLoading, setSolutionLoading] = useState(false);
+  const [showAutoSolution, setShowAutoSolution] = useState(false);
+  const [solutionGenerated, setSolutionGenerated] = useState(false); // משמש לסימון שנוצר פתרון
+  const [regeneratingSolution, setRegeneratingSolution] = useState(false);
+  const [searchingSolutions, setSearchingSolutions] = useState(false);
+  const [searchingKnowledgeBase, setSearchingKnowledgeBase] = useState(false);
+  // הגדרת טיפוס למקורות פתרון
+  interface SolutionSource {
+    type: 'knowledge_base' | 'previous_ticket';
+    content: string;
+    title: string;
+    relevance_score: number;
+    source_id: string;
+    metadata?: any;
+  }
+  
+  const [enhancedSolutionSources, setEnhancedSolutionSources] = useState<SolutionSource[]>([]);
+  const [enhancedSolutionConfidence, setEnhancedSolutionConfidence] = useState<number>(0); // ציון האמינות של הפתרון
+  const [editingSolution, setEditingSolution] = useState(false); // מצב עריכת פתרון
+  const [solution, setSolution] = useState<string>(''); // הפתרון הנוכחי
+  
+  // משתנים לפתרון ידני על ידי הנציג
+  const [agentSolution, setAgentSolution] = useState<string>('');
+  const [savingSolution, setSavingSolution] = useState(false);
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -39,6 +89,11 @@ export const TicketDetail: React.FC = () => {
         setLoading(true);
         const ticketData = await ticketService.getTicket(id);
         setTicket(ticketData);
+        
+        // טעינת תגובות מוצעות ופתרונות אוטומטיים לאחר טעינת הכרטיס
+        if (ticketData) {
+          loadSuggestedReplies(ticketData);
+        }
       } catch (error) {
         console.error('Failed to fetch ticket:', error);
       } finally {
@@ -48,6 +103,179 @@ export const TicketDetail: React.FC = () => {
 
     fetchTicket();
   }, [id]);
+  
+  // פונקציה לטעינת תגובות מוצעות
+  const loadSuggestedReplies = async (currentTicket: Ticket) => {
+    try {
+      const ticketContent = `${currentTicket.title} ${currentTicket.description}`;
+      const replies = await ticketService.getSuggestedReplies(ticketContent);
+      setSuggestedReplies(replies);
+    } catch (error) {
+      console.error('Failed to load suggested replies:', error);
+    }
+  };
+  
+  // פונקציה ליצירת פתרון אוטומטי
+  const loadAutoSolution = async () => {
+    if (!ticket) return;
+    
+    try {
+      setSolutionLoading(true);
+      const ticketContent = `${ticket.title} ${ticket.description}`;
+      const result = await enhancedSolutionService.findBestSolution(ticketContent);
+      
+      setSolution(result.solution);
+      setEnhancedSolutionSources(result.sources);
+      setEnhancedSolutionConfidence(result.confidence_score);
+      setAutoSolution(result.solution);
+      setSolutionGenerated(true);
+      setShowAutoSolution(true);
+      
+      toast.success('נוצר פתרון אוטומטי');
+    } catch (error) {
+      console.error('Failed to generate auto solution:', error);
+      toast.error('לא הצלחנו ליצור פתרון אוטומטי');
+    } finally {
+      setSolutionLoading(false);
+    }
+  };
+  
+  // פונקציה ליצירה מחדש של פתרון אוטומטי
+  const regenerateAutoSolution = async () => {
+    if (!ticket) return;
+    
+    try {
+      setRegeneratingSolution(true);
+      const ticketContent = `${ticket.title} ${ticket.description}`;
+      const result = await enhancedSolutionService.findBestSolution(ticketContent);
+      
+      setSolution(result.solution);
+      setEnhancedSolutionSources(result.sources);
+      setEnhancedSolutionConfidence(result.confidence_score);
+      setAutoSolution(result.solution);
+      
+      toast.success('הפתרון האוטומטי חודש');
+    } catch (error) {
+      console.error('Failed to regenerate auto solution:', error);
+      toast.error('לא הצלחנו לחדש את הפתרון האוטומטי');
+    } finally {
+      setRegeneratingSolution(false);
+    }
+  };
+  
+  // חיפוש פתרונות דומים מקריאות שירות קודמות
+  const handleSearchSimilarSolutions = async () => {
+    if (!ticket) return;
+    setSearchingSolutions(true);
+    try {
+      const ticketContent = `${ticket.title} ${ticket.description}`;
+      // שימוש בפונקציה הציבורית findBestSolution שמחפשת גם בכרטיסים קודמים
+      const result = await enhancedSolutionService.findBestSolution(ticketContent);
+      
+      console.log('Search results:', result);
+      
+      if (result.sources.length > 0) {
+        // סינון מקורות רק לכרטיסים קודמים
+        const ticketSources = result.sources.filter(source => source.type === 'previous_ticket');
+        
+        console.log('Filtered ticket sources:', ticketSources);
+        
+        if (ticketSources.length > 0) {
+          // יצירת פתרון מהמקור הטוב ביותר
+          const bestTicketSource = ticketSources[0];
+          
+          // שימוש בתוכן המקור במקום הפתרון המשולב
+          setSolution(bestTicketSource.content);
+          // הצגת רק מקורות מכרטיסים קודמים
+          setEnhancedSolutionSources(ticketSources);
+          setEnhancedSolutionConfidence(bestTicketSource.relevance_score);
+          setEditingSolution(true);
+          setAutoSolution(bestTicketSource.content);
+          setSolutionGenerated(true);
+          setShowAutoSolution(true);
+          toast.success('נמצא פתרון דומה מקריאות קודמות');
+        } else {
+          toast.info('לא נמצאו פתרונות דומים מספיק מקריאות קודמות');
+        }
+      } else {
+        toast.info('לא נמצאו פתרונות דומים מספיק מקריאות קודמות');
+      }
+    } catch (error) {
+      console.error('Failed to search similar solutions:', error);
+      toast.error('לא הצלחנו למצוא פתרון דומה מקריאות קודמות');
+    } finally {
+      setSearchingSolutions(false);
+    }
+  };
+  
+  // שמירת פתרון ידני על ידי הנציג
+  const handleSaveAgentSolution = async () => {
+    if (!ticket || !agentSolution.trim()) return;
+    
+    setSavingSolution(true);
+    try {
+      // שמירת הפתרון בסופרבייס לצורך למידה עתידית
+      await enhancedSolutionService.saveSolutionForLearning(ticket.id, agentSolution);
+      
+      // עדכון הממשק
+      setAutoSolution(agentSolution);
+      setShowAutoSolution(true);
+      setSolutionGenerated(true);
+      setAgentSolution('');
+      toast.success('הפתרון נשמר בהצלחה');
+    } catch (error) {
+      console.error('Failed to save agent solution:', error);
+      toast.error('אירעה שגיאה בשמירת הפתרון');
+    } finally {
+      setSavingSolution(false);
+    }
+  };
+  
+  // חיפוש פתרון ממאגר הידע
+  const handleSearchKnowledgeBase = async () => {
+    if (!ticket) return;
+    setSearchingKnowledgeBase(true);
+    try {
+      const ticketContent = `${ticket.title} ${ticket.description}`;
+      const knowledgeResults = await knowledgeBaseService.searchKnowledge(ticketContent, 3);
+      
+      if (knowledgeResults.length > 0) {
+        // מיון לפי ציון דמיון
+        knowledgeResults.sort((a, b) => b.similarity_score - a.similarity_score);
+        const bestResult = knowledgeResults[0];
+        
+        // המרה למבנה מקורות אחיד
+        const sources: SolutionSource[] = knowledgeResults.map(result => ({
+          type: 'knowledge_base' as const,
+          content: result.chunk.content,
+          title: result.kb_item.title,
+          relevance_score: result.similarity_score,
+          source_id: result.kb_item.id,
+          metadata: {
+            category: result.kb_item.category,
+            tags: result.kb_item.tags
+          }
+        }));
+        
+        // שימוש בפתרון שנמצא
+        const foundSolution = bestResult.chunk.content;
+        setSolution(foundSolution);
+        setEnhancedSolutionSources(sources);
+        setEnhancedSolutionConfidence(bestResult.similarity_score);
+        setAutoSolution(foundSolution);
+        setSolutionGenerated(true);
+        setShowAutoSolution(true);
+        toast.success('נמצא פתרון ממאגר הידע');
+      } else {
+        toast.info('לא נמצאו פתרונות רלוונטיים במאגר הידע');
+      }
+    } catch (error) {
+      console.error('Failed to search knowledge base:', error);
+      toast.error('לא הצלחנו לחפש במאגר הידע');
+    } finally {
+      setSearchingKnowledgeBase(false);
+    }
+  };
   
   // Scroll to bottom of messages when conversation updates
   useEffect(() => {
@@ -129,6 +357,14 @@ export const TicketDetail: React.FC = () => {
   
   const insertQuickReply = (replyTemplate: string) => {
     setReplyContent(prev => prev + (prev ? '\n' : '') + replyTemplate);
+  };
+  
+  // שימוש בתגובה מוצעת
+  const handleUseSuggestedReply = (reply: string) => {
+    // הסרת תגי HTML אם יש כאלה
+    const cleanReply = reply.replace(/<[^>]*>/g, '');
+    setReplyContent(cleanReply);
+    toast.success('התגובה המוצעת נוספה לתיבת ההודעה');
   };
 
 
@@ -449,7 +685,168 @@ export const TicketDetail: React.FC = () => {
                       <ExclamationCircleIcon className="h-3.5 w-3.5 inline-block ml-1" />
                       בקשת מידע
                     </button>
+                    
+                    {/* כפתורי AI */}
+                    <button 
+                      onClick={loadAutoSolution} 
+                      disabled={solutionLoading}
+                      className="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-lg text-xs border border-purple-200 hover:bg-purple-100 transition-colors flex items-center"
+                    >
+                      <SparklesIcon className="h-3.5 w-3.5 inline-block ml-1" />
+                      {solutionLoading ? 'מחפש פתרון...' : 'פתרון אוטומטי'}
+                    </button>
+                    <button 
+                      onClick={handleSearchSimilarSolutions} 
+                      disabled={searchingSolutions}
+                      className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg text-xs border border-indigo-200 hover:bg-indigo-100 transition-colors flex items-center"
+                    >
+                      <DocumentDuplicateIcon className="h-3.5 w-3.5 inline-block ml-1" />
+                      {searchingSolutions ? 'מחפש...' : 'חפש פתרונות דומים'}
+                    </button>
+                    <button 
+                      onClick={handleSearchKnowledgeBase} 
+                      disabled={searchingKnowledgeBase}
+                      className="px-3 py-1.5 bg-teal-50 text-teal-700 rounded-lg text-xs border border-teal-200 hover:bg-teal-100 transition-colors flex items-center"
+                    >
+                      <DocumentTextIcon className="h-3.5 w-3.5 inline-block ml-1" />
+                      {searchingKnowledgeBase ? 'מחפש...' : 'חפש במאגר הידע'}
+                    </button>
+                    <button 
+                      onClick={() => setEditingSolution(true)}
+                      className="px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs border border-green-200 hover:bg-green-100 transition-colors flex items-center"
+                    >
+                      <PencilIcon className="h-3.5 w-3.5 inline-block ml-1" />
+                      רשום פתרון ידני
+                    </button>
                   </div>
+                  
+                  {/* אזור עריכת פתרון ידני */}
+                  {editingSolution && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-sm font-medium text-gray-900 flex items-center">
+                          <PencilIcon className="h-4 w-4 text-green-600 mr-1" />
+                          רשום פתרון ידני
+                        </h3>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => setEditingSolution(false)}
+                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <XCircleIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-2">
+                        <textarea
+                          value={agentSolution}
+                          onChange={(e) => setAgentSolution(e.target.value)}
+                          className="w-full border border-gray-300 rounded-md p-2 text-sm text-right"
+                          rows={5}
+                          placeholder="הכנס כאן את הפתרון הידני שלך"
+                          dir="rtl"
+                        />
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            onClick={handleSaveAgentSolution}
+                            disabled={savingSolution || !agentSolution.trim()}
+                            className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                          >
+                            {savingSolution ? 'שומר...' : 'שמור פתרון'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* הצגת פתרון אוטומטי */}
+                  {showAutoSolution && autoSolution && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-sm font-medium text-gray-900 flex items-center">
+                          <SparklesIcon className="h-4 w-4 text-purple-600 mr-1" />
+                          פתרון מוצע
+                        </h3>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => setShowAutoSolution(false)}
+                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                          >
+                            <XCircleIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="text-gray-800 whitespace-pre-wrap mb-3">
+                        {autoSolution}
+                      </div>
+                      
+                      <div className="flex space-x-2 space-x-reverse">
+                        <button
+                          onClick={() => handleUseSuggestedReply(autoSolution)}
+                          className="flex-1 text-center p-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        >
+                          השתמש בפתרון זה
+                        </button>
+                        <button
+                          onClick={regenerateAutoSolution}
+                          disabled={regeneratingSolution}
+                          className="p-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg border border-gray-200 transition-colors"
+                        >
+                          {regeneratingSolution ? 'מחדש...' : 'חדש פתרון'}
+                        </button>
+                      </div>
+                      
+                      {/* הצגת מקורות הפתרון */}
+                      {enhancedSolutionSources.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          <h5 className="text-sm font-medium text-gray-700 mb-2">מקורות פתרון:</h5>
+                          <div className="space-y-2">
+                            {enhancedSolutionSources.map((source, index) => (
+                              <div key={index} className="flex items-center justify-between bg-white p-2 rounded-lg border border-gray-200">
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-gray-800">{source.title}</p>
+                                  <p className="text-xs text-gray-500 truncate">
+                                    {source.type === 'previous_ticket' ? 'כרטיס קודם' : 'מאגר ידע'}
+                                  </p>
+                                </div>
+                                {source.type === 'previous_ticket' && (
+                                  <button
+                                    onClick={() => navigate(`/tickets/${source.source_id}`)}
+                                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                                  >
+                                    פתח כרטיס
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* תגובות מוצעות */}
+                  {suggestedReplies.length > 0 && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                      <h3 className="text-sm font-medium text-blue-900 mb-2 flex items-center">
+                        <ChatBubbleLeftRightIcon className="h-4 w-4 ml-1 text-blue-600" />
+                        תגובות מוצעות
+                      </h3>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {suggestedReplies.map((reply, index) => (
+                          <div key={index} className="flex space-x-2 space-x-reverse">
+                            <button
+                              onClick={() => handleUseSuggestedReply(reply)}
+                              className="flex-1 text-right p-2 text-xs bg-white hover:bg-blue-100 rounded border border-blue-200 transition-colors flex items-center justify-between"
+                            >
+                              <span>{reply.length > 80 ? reply.substring(0, 80) + '...' : reply}</span>
+                              <PaperAirplaneIcon className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   
                   <textarea
                     className="w-full p-3 sm:p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all duration-200 bg-slate-50 hover:bg-white focus:bg-white text-sm sm:text-base"

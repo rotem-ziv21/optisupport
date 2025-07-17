@@ -13,6 +13,7 @@ import { Login } from './components/Login';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './contexts/AuthContext';
 import { TeamManagement } from './components/TeamManagement';
+import { Analytics } from './components/Analytics';
 
 function App() {
   return (
@@ -74,10 +75,7 @@ function App() {
           <Route path="/analytics" element={
             <ProtectedRoute>
               <Layout>
-                <div className="text-center py-12">
-                  <h2 className="text-2xl font-bold text-gray-900">אנליטיקה</h2>
-                  <p className="text-gray-500 mt-2">בקרוב...</p>
-                </div>
+                <Analytics />
               </Layout>
             </ProtectedRoute>
           } />

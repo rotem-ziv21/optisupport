@@ -338,12 +338,25 @@ class TicketService {
       return updatedTicket;
     }
 
+    // הכנת אובייקט העדכון עם שדות זמן מותאמים
+    const updateData: any = {
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+
+    // אם הסטטוס משתנה ל-in_progress, נעדכן את in_progress_at
+    if (updates.status === 'in_progress') {
+      updateData.in_progress_at = new Date().toISOString();
+    }
+
+    // אם הסטטוס משתנה ל-resolved או closed, נעדכן את resolved_at
+    if (updates.status === 'resolved' || updates.status === 'closed') {
+      updateData.resolved_at = new Date().toISOString();
+    }
+
     const { data, error } = await supabase
       .from('tickets')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

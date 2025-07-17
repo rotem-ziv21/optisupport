@@ -685,18 +685,23 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-6xl bg-white rounded-2xl shadow-2xl max-h-[95vh] flex flex-col backdrop-blur-xl border border-gray-200/20"
+              className="relative w-full max-w-7xl bg-gradient-to-br from-white via-gray-50/30 to-white rounded-3xl shadow-2xl max-h-[95vh] flex flex-col backdrop-blur-xl border border-gray-200/20 overflow-hidden"
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200/30 bg-gradient-to-r from-gray-50 to-gray-100/50 flex-shrink-0 rounded-t-2xl backdrop-blur-sm">
-                <div className="flex items-center space-x-4 space-x-reverse">
-                  <div className="p-3 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl shadow-lg">
-                    <TicketIcon className="h-6 w-6 text-blue-700" />
+              <div className="flex items-center justify-between p-8 border-b border-gray-200/30 bg-gradient-to-r from-slate-50 via-gray-50/80 to-slate-50/50 flex-shrink-0 rounded-t-3xl backdrop-blur-sm relative overflow-hidden">
+                {/* Subtle geometric pattern overlay */}
+                <div className="absolute inset-0 opacity-5">
+                  <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full filter blur-3xl"></div>
+                  <div className="absolute bottom-0 right-0 w-40 h-40 bg-gradient-to-tl from-indigo-500 to-cyan-500 rounded-full filter blur-3xl"></div>
+                </div>
+                <div className="flex items-center space-x-6 space-x-reverse relative z-10">
+                  <div className="p-4 bg-gradient-to-br from-blue-500/10 via-indigo-500/10 to-purple-500/10 rounded-2xl shadow-lg border border-blue-200/20 backdrop-blur-sm">
+                    <TicketIcon className="h-7 w-7 text-blue-600" />
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-gray-900 bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text">{currentTicket.title}</h2>
-                    <div className="flex items-center space-x-4 space-x-reverse mt-1">
-                      <span className="text-sm text-gray-500">
+                    <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-700 bg-clip-text text-transparent leading-tight">{currentTicket.title}</h2>
+                    <div className="flex items-center space-x-4 space-x-reverse mt-2">
+                      <span className="text-sm text-gray-600 font-medium bg-gray-100/80 px-3 py-1 rounded-full">
                         #{currentTicket.ticket_number || currentTicket.id.slice(0, 8)}
                       </span>
                       
@@ -705,7 +710,7 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                         <button
                           onClick={() => setStatusDropdownOpen(!statusDropdownOpen)}
                           className={clsx(
-                            'inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition-colors hover:opacity-80',
+                            'inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg backdrop-blur-sm border border-white/20',
                             statusColors[currentTicket.status]
                           )}
                         >
@@ -715,7 +720,7 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                         </button>
                         
                         {statusDropdownOpen && (
-                          <div className="absolute top-full left-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                          <div className="absolute top-full left-0 mt-2 w-48 bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl border border-gray-200/50 z-10 overflow-hidden">
                             {statusOptions.map((option) => {
                               const OptionIcon = option.icon;
                               return (
@@ -723,8 +728,8 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                                   key={option.value}
                                   onClick={() => handleStatusChange(option.value)}
                                   className={clsx(
-                                    'w-full flex items-center px-3 py-2 text-sm hover:bg-gray-50 transition-colors',
-                                    currentTicket.status === option.value ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                                    'w-full flex items-center px-4 py-3 text-sm hover:bg-gray-50/80 transition-all duration-200 hover:scale-[1.02] hover:shadow-sm',
+                                    currentTicket.status === option.value ? 'bg-blue-50/80 text-blue-700 font-medium' : 'text-gray-700'
                                   )}
                                 >
                                   <OptionIcon className={clsx('h-4 w-4 ml-2', option.color)} />
@@ -736,7 +741,7 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                         )}
                       </div>
                       
-                      <span className={clsx('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', priorityColors[currentTicket.priority])}>
+                      <span className={clsx('inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold backdrop-blur-sm border border-white/20', priorityColors[currentTicket.priority])}>
                         {priorityLabels[currentTicket.priority]}
                       </span>
                     </div>
@@ -744,7 +749,7 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                 </div>
                 <button
                   onClick={onClose}
-                  className="p-3 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-white/70 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-110"
+                  className="relative z-10 p-3 text-gray-400 hover:text-gray-600 rounded-xl hover:bg-white/70 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-110 hover:rotate-90 backdrop-blur-sm"
                 >
                   <XMarkIcon className="h-6 w-6" />
                 </button>
@@ -754,40 +759,52 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                 {/* Main Content */}
                 <div className="flex-1 flex flex-col">
                   {/* Customer Info & Description */}
-                  <div className="p-4 border-b border-gray-200 flex-shrink-0">
+                  <div className="p-6 border-b border-gray-200/30 flex-shrink-0 bg-gradient-to-br from-gray-50/30 to-white">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                      <div className="flex items-center space-x-3 space-x-reverse">
-                        <UserIcon className="h-5 w-5 text-gray-400" />
+                      <div className="flex items-center space-x-4 space-x-reverse p-4 bg-gradient-to-r from-blue-50/50 to-indigo-50/30 rounded-xl border border-blue-100/50 backdrop-blur-sm">
+                        <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full shadow-lg">
+                          <UserIcon className="h-5 w-5 text-white" />
+                        </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{currentTicket.customer_name}</p>
-                          <p className="text-sm text-gray-500">{currentTicket.customer_email}</p>
+                          <p className="text-sm font-semibold text-gray-900">{currentTicket.customer_name}</p>
+                          <p className="text-sm text-blue-600 font-medium">{currentTicket.customer_email}</p>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-3 space-x-reverse">
-                        <ClockIcon className="h-5 w-5 text-gray-400" />
+                      <div className="flex items-center space-x-4 space-x-reverse p-4 bg-gradient-to-r from-emerald-50/50 to-teal-50/30 rounded-xl border border-emerald-100/50 backdrop-blur-sm">
+                        <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full shadow-lg">
+                          <ClockIcon className="h-5 w-5 text-white" />
+                        </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">נוצר</p>
-                          <p className="text-sm text-gray-500">{new Date(currentTicket.created_at).toLocaleString('he-IL')}</p>
+                          <p className="text-sm font-semibold text-gray-900">נוצר</p>
+                          <p className="text-sm text-emerald-600 font-medium">{new Date(currentTicket.created_at).toLocaleString('he-IL')}</p>
                         </div>
                       </div>
                     </div>
                     
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900 mb-2">תיאור הבעיה</h3>
-                      <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{currentTicket.description}</p>
+                    <div className="mb-6">
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full ml-2"></div>
+                        תיאור הבעיה
+                      </h3>
+                      <div className="bg-gradient-to-br from-gray-50/80 to-white p-5 rounded-2xl border border-gray-200/50 shadow-sm backdrop-blur-sm">
+                        <p className="text-gray-700 leading-relaxed">{currentTicket.description}</p>
+                      </div>
                     </div>
 
                     {/* Tags */}
                     {currentTicket.tags && currentTicket.tags.length > 0 && (
-                      <div className="mt-4">
-                        <h4 className="text-sm font-medium text-gray-900 mb-2">תגיות</h4>
-                        <div className="flex flex-wrap gap-2">
+                      <div className="mb-6">
+                        <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                          <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full ml-2"></div>
+                          תגיות
+                        </h4>
+                        <div className="flex flex-wrap gap-3">
                           {currentTicket.tags.map((tag, index) => (
                             <span
                               key={index}
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold bg-gradient-to-r from-blue-500/10 to-purple-500/10 text-blue-700 border border-blue-200/50 backdrop-blur-sm hover:scale-105 transition-transform duration-200"
                             >
-                              <TagIcon className="h-3 w-3 ml-1" />
+                              <TagIcon className="h-4 w-4 ml-1" />
                               {tag}
                             </span>
                           ))}
@@ -796,12 +813,15 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                     )}
 
                     {/* Agent Actions */}
-                    <div className="mt-4">
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">פעולות שבוצעו על ידי הנציג</h4>
+                    <div className="mb-6">
+                      <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <div className="w-1 h-6 bg-gradient-to-b from-green-500 to-emerald-500 rounded-full ml-2"></div>
+                        פעולות שבוצעו על ידי הנציג
+                      </h4>
                       
                       {/* Action History */}
                       {agentActions.length > 0 && (
-                        <div className="mb-3 max-h-40 overflow-y-auto border border-gray-200 rounded-lg divide-y divide-gray-200">
+                        <div className="mb-4 max-h-40 overflow-y-auto border border-gray-200/50 rounded-xl divide-y divide-gray-200/50 bg-gradient-to-br from-gray-50/50 to-white backdrop-blur-sm">
                           {agentActions.map((action) => {
                             // Handle case where action might be a string representation of JSON
                             let displayContent = action.content;
@@ -842,12 +862,12 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                             }
                             
                             return (
-                              <div key={action.id} className="p-2 bg-gray-50">
-                                <div className="text-xs text-gray-500 mb-1 flex justify-between">
-                                  <span>{action.agent_name || 'נציג'}</span>
-                                  <span>{formatDate(action.timestamp)}</span>
+                              <div key={action.id} className="p-4 bg-gradient-to-r from-gray-50/50 to-white hover:from-gray-50/80 hover:to-white transition-all duration-200">
+                                <div className="text-xs text-gray-600 mb-2 flex justify-between items-center">
+                                  <span className="font-medium bg-green-100 text-green-800 px-2 py-1 rounded-full">{action.agent_name || 'נציג'}</span>
+                                  <span className="text-gray-500">{formatDate(action.timestamp)}</span>
                                 </div>
-                                <p className="text-sm">{displayContent}</p>
+                                <p className="text-sm text-gray-700 leading-relaxed">{displayContent}</p>
                               </div>
                             );
                           })}
@@ -855,19 +875,24 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                       )}
                       
                       {/* Add New Action */}
-                      <div className="space-y-2">
-                        <textarea
-                          value={newAgentAction}
-                          onChange={(e) => setNewAgentAction(e.target.value)}
-                          rows={3}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-sm"
-                          placeholder="הוסף פעולה חדשה שביצעת לפתרון הבעיה..."
-                        />
+                      <div className="space-y-4">
+                        <div className="relative">
+                          <textarea
+                            value={newAgentAction}
+                            onChange={(e) => setNewAgentAction(e.target.value)}
+                            rows={3}
+                            className="w-full px-4 py-3 border-2 border-gray-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-300 resize-none text-sm transition-all duration-300 bg-gradient-to-br from-gray-50/50 to-white backdrop-blur-sm shadow-sm focus:shadow-lg"
+                            placeholder="הוסף פעולה חדשה שביצעת לפתרון הבעיה..."
+                          />
+                          <div className="absolute top-2 left-2 opacity-20">
+                            <PlusIcon className="h-4 w-4 text-gray-400" />
+                          </div>
+                        </div>
                         <button
                           onClick={handleAddAgentAction}
                           disabled={savingActions || !newAgentAction.trim()}
                           data-add-action
-                          className="flex items-center px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-all duration-200"
+                          className="flex items-center px-6 py-3 text-sm bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none font-medium"
                         >
                           <PlusIcon className="h-4 w-4 ml-1" />
                           {savingActions ? 'מוסיף...' : 'הוסף פעולה'}
@@ -876,14 +901,15 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                     </div>
                     
                     {/* Ticket Messages - מוצג גם בכרטיסי לקוח */}
-                    <div className="mt-4">
-                      <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                        <ChatBubbleLeftRightIcon className="h-4 w-4 ml-1" />
+                    <div className="mb-6">
+                      <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                        <div className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full ml-2"></div>
+                        <ChatBubbleLeftRightIcon className="h-5 w-5 ml-1 text-indigo-600" />
                         הודעות בכרטיס
                       </h4>
                       
                       {currentTicket.conversation && currentTicket.conversation.length > 0 ? (
-                        <div className="mb-3 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50">
+                        <div className="mb-4 max-h-60 overflow-y-auto border border-gray-200/50 rounded-xl p-4 bg-gradient-to-br from-gray-50/50 to-white backdrop-blur-sm shadow-sm">
                           <div className="space-y-3">
                             {currentTicket.conversation.map((message) => {
                               // בדיקה אם ההודעה נשלחה ללקוח
@@ -960,18 +986,23 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                       
                       {/* תיבת הודעה מקוצרת */}
                       <div className="flex space-x-2 space-x-reverse">
-                        <input
-                          type="text"
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          placeholder="כתוב הודעה..."
-                          className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                        />
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder="כתוב הודעה..."
+                            className="w-full px-4 py-3 text-sm border-2 border-gray-200/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-300 transition-all duration-300 bg-gradient-to-r from-gray-50/50 to-white backdrop-blur-sm shadow-sm focus:shadow-lg"
+                            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                          />
+                          <div className="absolute top-3 left-3 opacity-20">
+                            <ChatBubbleLeftRightIcon className="h-4 w-4 text-gray-400" />
+                          </div>
+                        </div>
                         <button
                           onClick={handleSendMessage}
                           disabled={loading || !newMessage.trim()}
-                          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center"
+                          className="px-4 py-3 text-sm bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all duration-300 flex items-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none font-medium"
                         >
                           <PaperAirplaneIcon className="h-4 w-4 ml-1" />
                           שלח
@@ -983,14 +1014,20 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                  {/* Auto Solution */}
                  <div className="flex-shrink-0">
                    {/* כפתורים לחיפוש פתרונות - מוצגים תמיד */}
-                   <div className="p-6 bg-gradient-to-br from-gray-50 to-white border-b border-gray-200 backdrop-blur-sm">
-                     <div className="space-y-3">
+                   <div className="p-6 bg-gradient-to-br from-slate-50/50 via-gray-50/30 to-white border-b border-gray-200/30 backdrop-blur-sm relative overflow-hidden">
+                     {/* Background pattern */}
+                     <div className="absolute inset-0 opacity-[0.02]">
+                       <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-blue-500 to-purple-500 rounded-full filter blur-3xl"></div>
+                       <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-emerald-500 to-cyan-500 rounded-full filter blur-3xl"></div>
+                     </div>
+                     <div className="space-y-4 relative z-10">
                        {/* כפתור לחיפוש במאגר ידע */}
                        <button
                          onClick={handleSearchKnowledgeBase}
                          disabled={searchingKnowledgeBase || solutionLoading}
-                         className="group w-full p-3 text-sm bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 flex items-center justify-center space-x-2 space-x-reverse disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none"
+                         className="group w-full p-4 text-sm bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 text-white rounded-2xl hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 transition-all duration-300 flex items-center justify-center space-x-2 space-x-reverse disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none relative overflow-hidden"
                        >
+                         <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                          {searchingKnowledgeBase ? (
                            <>
                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -998,8 +1035,8 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                            </>
                          ) : (
                            <>
-                             <DocumentTextIcon className="h-4 w-4 ml-1 group-hover:scale-110 transition-transform duration-200" />
-                             <span className="font-medium">חפש פתרון במאגר הידע</span>
+                             <DocumentTextIcon className="h-5 w-5 ml-1 group-hover:scale-110 transition-transform duration-200 relative z-10" />
+                             <span className="font-semibold relative z-10">חפש פתרון במאגר הידע</span>
                            </>
                          )}
                        </button>
@@ -1008,8 +1045,9 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                        <button
                          onClick={handleSearchSimilarSolutions}
                          disabled={searchingSolutions || solutionLoading}
-                         className="group w-full p-3 text-sm bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-300 flex items-center justify-center space-x-2 space-x-reverse disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none"
+                         className="group w-full p-4 text-sm bg-gradient-to-r from-purple-600 via-purple-700 to-pink-600 text-white rounded-2xl hover:from-purple-700 hover:via-purple-800 hover:to-pink-700 transition-all duration-300 flex items-center justify-center space-x-2 space-x-reverse disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none relative overflow-hidden"
                        >
+                         <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                          {searchingSolutions ? (
                            <>
                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -1017,8 +1055,8 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                            </>
                          ) : (
                            <>
-                             <ChartBarIcon className="h-4 w-4 ml-1 group-hover:scale-110 transition-transform duration-200" />
-                             <span className="font-medium">חפש פתרון מקריאות דומות</span>
+                             <ChartBarIcon className="h-5 w-5 ml-1 group-hover:scale-110 transition-transform duration-200 relative z-10" />
+                             <span className="font-semibold relative z-10">חפש פתרון מקריאות דומות</span>
                            </>
                          )}
                        </button>
@@ -1029,19 +1067,26 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                            setEditingSolution(true);
                            setAgentSolution('');
                          }}
-                         className="group w-full p-3 text-sm bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-300 flex items-center justify-center space-x-2 space-x-reverse shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                         className="group w-full p-4 text-sm bg-gradient-to-r from-green-600 via-green-700 to-emerald-600 text-white rounded-2xl hover:from-green-700 hover:via-green-800 hover:to-emerald-700 transition-all duration-300 flex items-center justify-center space-x-2 space-x-reverse shadow-lg hover:shadow-xl transform hover:-translate-y-1 relative overflow-hidden"
                        >
-                         <PencilIcon className="h-4 w-4 ml-1 group-hover:scale-110 transition-transform duration-200" />
-                         <span className="font-medium">רשום פתרון ידני</span>
+                         <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                         <PencilIcon className="h-5 w-5 ml-1 group-hover:scale-110 transition-transform duration-200 relative z-10" />
+                         <span className="font-semibold relative z-10">רשום פתרון ידני</span>
                        </button>
                      </div>
                    </div>
                    
                    {(autoSolution || solutionLoading) && (
-                     <div className="p-6 bg-gradient-to-br from-purple-50/50 to-white border-b border-purple-200/30 backdrop-blur-sm">
-                     <div className="flex justify-between items-center mb-3">
-                       <h4 className="text-sm font-medium text-gray-900 flex items-center">
-                         <SparklesIcon className="h-4 w-4 ml-1 text-purple-600" />
+                     <div className="p-6 bg-gradient-to-br from-purple-50/50 via-indigo-50/30 to-white border-b border-purple-200/30 backdrop-blur-sm relative overflow-hidden">
+                       {/* Background decoration */}
+                       <div className="absolute inset-0 opacity-[0.03]">
+                         <div className="absolute top-0 left-0 w-32 h-32 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full filter blur-2xl"></div>
+                         <div className="absolute bottom-0 right-0 w-24 h-24 bg-gradient-to-tl from-indigo-500 to-purple-500 rounded-full filter blur-2xl"></div>
+                       </div>
+                     <div className="flex justify-between items-center mb-4 relative z-10">
+                       <h4 className="text-lg font-bold text-gray-900 flex items-center">
+                         <div className="w-1 h-6 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full ml-2"></div>
+                         <SparklesIcon className="h-5 w-5 ml-1 text-purple-600" />
                          פתרון אוטומטי ממאגר הידע
                        </h4>
                        
@@ -1049,7 +1094,7 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                        {!solutionLoading && autoSolution && (
                          <button 
                            onClick={() => setShowAutoSolution((prev: boolean) => !prev)}
-                           className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100"
+                           className="text-gray-400 hover:text-gray-600 p-2 rounded-xl hover:bg-white/70 transition-all duration-200 hover:scale-110"
                          >
                            {showAutoSolution ? (
                              <ChevronUpIcon className="h-5 w-5" />
@@ -1061,25 +1106,27 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                      </div>
                      
                      {solutionLoading ? (
-                       <div className="flex items-center space-x-2 space-x-reverse">
-                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
-                         <span className="text-sm text-gray-600">מחפש פתרון במאגר הידע...</span>
+                       <div className="flex items-center space-x-3 space-x-reverse relative z-10">
+                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
+                         <span className="text-sm text-gray-600 font-medium">מחפש פתרון במאגר הידע...</span>
                        </div>
                      ) : autoSolution ? (
-                       <div>
+                       <div className="relative z-10">
                           {showAutoSolution && (
-                            <div className="bg-gradient-to-br from-purple-50 to-purple-100/30 border-2 border-purple-200/40 rounded-xl p-5 mb-4 shadow-lg backdrop-blur-sm">
-                              <div className="text-sm text-purple-800 prose prose-sm max-w-none whitespace-pre-wrap">
+                            <div className="bg-gradient-to-br from-purple-50/80 to-purple-100/50 border-2 border-purple-200/40 rounded-2xl p-6 mb-6 shadow-lg backdrop-blur-sm relative overflow-hidden">
+                              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-pink-500/5 rounded-2xl"></div>
+                              <div className="text-sm text-purple-800 prose prose-sm max-w-none whitespace-pre-wrap relative z-10 leading-relaxed">
                                 {autoSolution}
                               </div>
                             </div>
                           )}
-                          <div className="flex space-x-2 space-x-reverse">
+                          <div className="flex space-x-3 space-x-reverse">
                             <button
                               onClick={() => handleUseSuggestedReply(autoSolution.replace(/<[^>]*>/g, ''))}
-                              className="flex-1 text-center p-3 text-sm bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-medium"
+                              className="flex-1 text-center p-4 text-sm bg-gradient-to-r from-purple-600 via-purple-700 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:via-purple-800 hover:to-pink-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 font-semibold relative overflow-hidden"
                             >
-                              השתמש בפתרון זה
+                              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                              <span className="relative z-10">השתמש בפתרון זה</span>
                              </button>
                              <button
                                onClick={() => {
@@ -1087,14 +1134,14 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                                  navigator.clipboard.writeText(plainText);
                                  toast.success('הפתרון הועתק ללוח');
                                }}
-                               className="px-4 py-3 text-sm text-purple-600 border-2 border-purple-200 rounded-xl hover:bg-purple-50 hover:border-purple-300 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium"
+                               className="px-5 py-4 text-sm text-purple-600 border-2 border-purple-200/70 rounded-xl hover:bg-purple-50/80 hover:border-purple-300 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-1 font-semibold backdrop-blur-sm"
                              >
                                העתק
                              </button>
                               <button
                                 onClick={regenerateAutoSolution}
                                 disabled={regeneratingSolution}
-                                className="px-4 py-3 text-sm text-purple-600 border-2 border-purple-200 rounded-xl hover:bg-purple-50 hover:border-purple-300 transition-all duration-300 disabled:opacity-50 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:transform-none font-medium"
+                                className="px-5 py-4 text-sm text-purple-600 border-2 border-purple-200/70 rounded-xl hover:bg-purple-50/80 hover:border-purple-300 transition-all duration-300 disabled:opacity-50 shadow-md hover:shadow-lg transform hover:-translate-y-1 disabled:transform-none font-semibold backdrop-blur-sm"
                               >
                                 {regeneratingSolution ? 'מייצר מחדש...' : 'ייצר מחדש'}
                               </button>
@@ -1103,7 +1150,7 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                                   setEditingSolution(true);
                                   setAgentSolution(autoSolution || '');
                                 }}
-                                className="px-4 py-3 text-sm text-green-600 border-2 border-green-200 rounded-xl hover:bg-green-50 hover:border-green-300 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium"
+                                className="px-5 py-4 text-sm text-green-600 border-2 border-green-200/70 rounded-xl hover:bg-green-50/80 hover:border-green-300 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-1 font-semibold backdrop-blur-sm"
                               >
                                 <PencilIcon className="h-4 w-4 inline ml-1" />
                                 ערוך
@@ -1116,42 +1163,56 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                     
                     {/* עריכת פתרון על ידי הנציג */}
                     {editingSolution && (
-                      <div className="p-6 bg-gradient-to-br from-green-50/50 to-white border-b border-green-200/30 backdrop-blur-sm">
-                        <div className="flex justify-between items-center mb-3">
-                          <h4 className="text-sm font-medium text-gray-900 flex items-center">
-                            <PencilIcon className="h-4 w-4 ml-1 text-green-600" />
+                      <div className="p-6 bg-gradient-to-br from-green-50/50 via-emerald-50/30 to-white border-b border-green-200/30 backdrop-blur-sm relative overflow-hidden">
+                        {/* Background decoration */}
+                        <div className="absolute inset-0 opacity-[0.03]">
+                          <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl from-green-500 to-emerald-500 rounded-full filter blur-2xl"></div>
+                          <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-tr from-emerald-500 to-green-500 rounded-full filter blur-2xl"></div>
+                        </div>
+                        <div className="flex justify-between items-center mb-4 relative z-10">
+                          <h4 className="text-lg font-bold text-gray-900 flex items-center">
+                            <div className="w-1 h-6 bg-gradient-to-b from-green-500 to-emerald-500 rounded-full ml-2"></div>
+                            <PencilIcon className="h-5 w-5 ml-1 text-green-600" />
                             רישום פתרון על ידי הנציג
                           </h4>
                         </div>
                         
-                        <div className="mb-3">
-                          <textarea
-                            value={agentSolution}
-                            onChange={(e) => setAgentSolution(e.target.value)}
-                            placeholder="רשום כאן את הפתרון לבעיה..."
-                            className="w-full p-4 border-2 border-gray-200 rounded-xl text-sm text-right resize-none focus:ring-2 focus:ring-green-500 focus:border-green-300 transition-all duration-300 shadow-md focus:shadow-lg backdrop-blur-sm"
-                            rows={6}
-                          />
+                        <div className="mb-6 relative z-10">
+                          <div className="relative">
+                            <textarea
+                              value={agentSolution}
+                              onChange={(e) => setAgentSolution(e.target.value)}
+                              placeholder="רשום כאן את הפתרון לבעיה..."
+                              className="w-full p-5 border-2 border-gray-200/70 rounded-2xl text-sm text-right resize-none focus:ring-2 focus:ring-green-500 focus:border-green-300 transition-all duration-300 shadow-md focus:shadow-lg bg-gradient-to-br from-green-50/30 to-white backdrop-blur-sm"
+                              rows={6}
+                            />
+                            <div className="absolute top-3 left-3 opacity-20">
+                              <PencilIcon className="h-5 w-5 text-green-400" />
+                            </div>
+                          </div>
                         </div>
                         
-                        <div className="flex space-x-2 space-x-reverse">
+                        <div className="flex space-x-3 space-x-reverse relative z-10">
                           <button
                             onClick={handleSaveAgentSolution}
                             disabled={savingSolution || !agentSolution.trim()}
-                            className="flex-1 p-3 text-sm bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-300 flex items-center justify-center disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none font-medium"
+                            className="flex-1 p-4 text-sm bg-gradient-to-r from-green-600 via-green-700 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:via-green-800 hover:to-emerald-700 transition-all duration-300 flex items-center justify-center disabled:opacity-50 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none font-semibold relative overflow-hidden"
                           >
-                            {savingSolution ? (
-                              <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                שומר...
-                              </>
-                            ) : (
-                              'שמור פתרון'
-                            )}
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                            <div className="relative z-10">
+                              {savingSolution ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                  שומר...
+                                </>
+                              ) : (
+                                'שמור פתרון'
+                              )}
+                            </div>
                           </button>
                           <button
                             onClick={() => setEditingSolution(false)}
-                            className="px-4 py-3 text-sm text-gray-600 border-2 border-gray-300 rounded-xl hover:bg-gray-100 hover:border-gray-400 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-medium"
+                            className="px-6 py-4 text-sm text-gray-600 border-2 border-gray-300/70 rounded-xl hover:bg-gray-100/80 hover:border-gray-400 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-1 font-semibold backdrop-blur-sm"
                           >
                             ביטול
                           </button>
@@ -1161,13 +1222,14 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                  </div>
 
                   {/* Conversation */}
-                  <div className="flex-1 overflow-y-auto p-4 min-h-0">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                      <ChatBubbleLeftRightIcon className="h-5 w-5 ml-2" />
+                  <div className="flex-1 overflow-y-auto p-6 min-h-0 bg-gradient-to-br from-gray-50/30 to-white">
+                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                      <div className="w-1 h-8 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full ml-3"></div>
+                      <ChatBubbleLeftRightIcon className="h-6 w-6 ml-2 text-indigo-600" />
                       שיחה
                     </h3>
                     
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       {currentTicket.conversation.map((message) => {
                         // בדיקה אם ההודעה נשלחה ללקוח (על פי התחילית בתוכן)
                         const isSentToCustomer = message.content.startsWith('[נשלח ללקוח]');
@@ -1179,14 +1241,14 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                           <div
                             key={message.id}
                             className={clsx(
-                              'flex items-end space-x-2 space-x-reverse',
+                              'flex items-end space-x-3 space-x-reverse',
                               message.sender === 'customer' ? 'justify-start' : 'justify-end'
                             )}
                           >
                             {/* אייקון המציין את סוג השולח */}
                             {message.sender === 'customer' && (
-                              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                                <UserIcon className="h-5 w-5 text-gray-600" />
+                              <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center shadow-lg">
+                                <UserIcon className="h-6 w-6 text-white" />
                               </div>
                             )}
                             
@@ -1194,29 +1256,29 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                               {/* בועת הצ'אט */}
                               <div
                                 className={clsx(
-                                  'max-w-xs lg:max-w-md px-4 py-2 rounded-lg',
+                                  'max-w-xs lg:max-w-md px-5 py-3 rounded-2xl shadow-lg backdrop-blur-sm border',
                                   message.sender === 'customer'
-                                    ? 'bg-gray-100 text-gray-900 rounded-tr-lg rounded-bl-lg rounded-br-lg'
+                                    ? 'bg-gradient-to-br from-gray-100 to-gray-200/50 text-gray-900 border-gray-200/50 rounded-tr-2xl rounded-bl-2xl rounded-br-2xl'
                                     : isSentToCustomer
-                                      ? 'bg-green-600 text-white rounded-tl-lg rounded-bl-lg rounded-br-lg'
-                                      : 'bg-blue-600 text-white rounded-tl-lg rounded-bl-lg rounded-tr-lg'
+                                      ? 'bg-gradient-to-br from-green-600 to-green-700 text-white border-green-500/30 rounded-tl-2xl rounded-bl-2xl rounded-br-2xl'
+                                      : 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white border-blue-500/30 rounded-tl-2xl rounded-bl-2xl rounded-tr-2xl'
                                 )}
                               >
-                                <p className="text-sm">{messageContent}</p>
+                                <p className="text-sm leading-relaxed">{messageContent}</p>
                                 
                                 {/* סימון שההודעה נשלחה ללקוח */}
                                 {isSentToCustomer && (
-                                  <div className="flex items-center mt-1">
+                                  <div className="flex items-center mt-2 px-2 py-1 bg-white/20 rounded-full">
                                     <EnvelopeIcon className="h-3 w-3 text-green-100 mr-1" />
-                                    <span className="text-xs text-green-100">נשלח ללקוח</span>
+                                    <span className="text-xs text-green-100 font-medium">נשלח ללקוח</span>
                                   </div>
                                 )}
                               </div>
                               
                               {/* פרטי השולח והזמן */}
                               <p className={clsx(
-                                'text-xs mt-1 self-end',
-                                message.sender === 'customer' ? 'text-gray-500' : 'text-gray-500'
+                                'text-xs mt-2 self-end font-medium px-2 py-1 rounded-full',
+                                message.sender === 'customer' ? 'text-gray-500 bg-gray-100' : 'text-gray-500 bg-gray-100'
                               )}>
                                 {message.sender_name} • {new Date(message.created_at).toLocaleTimeString('he-IL')}
                               </p>
@@ -1225,13 +1287,13 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                             {/* אייקון המציין את סוג השולח */}
                             {message.sender !== 'customer' && (
                               <div className={clsx(
-                                "flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center",
-                                isSentToCustomer ? "bg-green-100" : "bg-blue-100"
+                                "flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center shadow-lg",
+                                isSentToCustomer ? "bg-gradient-to-br from-green-500 to-emerald-500" : "bg-gradient-to-br from-blue-500 to-indigo-500"
                               )}>
                                 {isSentToCustomer ? (
-                                  <EnvelopeIcon className="h-5 w-5 text-green-600" />
+                                  <EnvelopeIcon className="h-6 w-6 text-white" />
                                 ) : (
-                                  <ChatBubbleLeftRightIcon className="h-5 w-5 text-blue-600" />
+                                  <ChatBubbleLeftRightIcon className="h-6 w-6 text-white" />
                                 )}
                               </div>
                             )}
@@ -1241,67 +1303,81 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                     </div>
 
                     {/* Message Input */}
-                    <div className="mt-4 border-t border-gray-200 pt-4 sticky bottom-0 bg-white">
-                      <div className="flex flex-col space-y-2">
-                        <input
-                          type="text"
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          placeholder="כתוב תגובה..."
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-300 transition-all duration-300 shadow-md focus:shadow-lg backdrop-blur-sm"
-                          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                          disabled={loading}
-                        />
-                        <div className="flex space-x-2 space-x-reverse justify-end">
+                    <div className="mt-6 border-t border-gray-200/50 pt-6 sticky bottom-0 bg-gradient-to-t from-white via-white/95 to-white/80 backdrop-blur-sm">
+                      <div className="flex flex-col space-y-4">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder="כתוב תגובה..."
+                            className="w-full px-6 py-4 border-2 border-gray-200/70 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-300 transition-all duration-300 shadow-lg focus:shadow-xl bg-gradient-to-r from-gray-50/50 to-white backdrop-blur-sm text-lg"
+                            onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                            disabled={loading}
+                          />
+                          <div className="absolute top-4 left-4 opacity-20">
+                            <ChatBubbleLeftRightIcon className="h-6 w-6 text-gray-400" />
+                          </div>
+                        </div>
+                        <div className="flex space-x-3 space-x-reverse justify-end">
                           {/* כפתור לשליחת הודעה בשם הלקוח */}
                           <button
                             onClick={handleSendAsCustomer}
                             disabled={loading || !newMessage.trim()}
-                            className="px-5 py-3 bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 rounded-xl hover:from-gray-300 hover:to-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none font-medium"
+                            className="px-6 py-4 bg-gradient-to-r from-gray-300 via-gray-400 to-gray-500 text-white rounded-xl hover:from-gray-400 hover:via-gray-500 hover:to-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none font-semibold relative overflow-hidden"
                             title="שלח הודעה בשם הלקוח"
                           >
-                            {loading ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-700"></div>
-                            ) : (
-                              <>
-                                <UserIcon className="h-4 w-4 ml-1" />
-                                שלח כלקוח
-                              </>
-                            )}
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                            <div className="relative z-10">
+                              {loading ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              ) : (
+                                <>
+                                  <UserIcon className="h-5 w-5 ml-1" />
+                                  שלח כלקוח
+                                </>
+                              )}
+                            </div>
                           </button>
                           
                           {/* כפתור לשליחת הודעה ללקוח */}
                           <button
                             onClick={handleSendToCustomer}
                             disabled={loading || !newMessage.trim()}
-                            className="px-5 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none font-medium"
+                            className="px-6 py-4 bg-gradient-to-r from-green-600 via-green-700 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:via-green-800 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none font-semibold relative overflow-hidden"
                             title="שלח הודעה ללקוח"
                           >
-                            {loading ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            ) : (
-                              <>
-                                <EnvelopeIcon className="h-4 w-4 ml-1" />
-                                שלח ללקוח
-                              </>
-                            )}
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                            <div className="relative z-10">
+                              {loading ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              ) : (
+                                <>
+                                  <EnvelopeIcon className="h-5 w-5 ml-1" />
+                                  שלח ללקוח
+                                </>
+                              )}
+                            </div>
                           </button>
                           
                           {/* כפתור לשליחת הודעה כנציג */}
                           <button
                             onClick={handleSendMessage}
                             disabled={loading || !newMessage.trim()}
-                            className="px-5 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none font-medium"
+                            className="px-6 py-4 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 disabled:transform-none font-semibold relative overflow-hidden"
                             title="שלח הודעה כנציג תמיכה"
                           >
-                            {loading ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            ) : (
-                              <>
-                                <PaperAirplaneIcon className="h-4 w-4 ml-1" />
-                                שלח כנציג
-                              </>
-                            )}
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                            <div className="relative z-10">
+                              {loading ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              ) : (
+                                <>
+                                  <PaperAirplaneIcon className="h-5 w-5 ml-1" />
+                                  שלח כנציג
+                                </>
+                              )}
+                            </div>
                           </button>
                         </div>
                       </div>
@@ -1310,69 +1386,81 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                 </div>
 
                 {/* AI Analysis Sidebar */}
-                <div className="w-80 border-l border-gray-200/50 bg-gradient-to-b from-gray-50/80 to-gray-100/30 overflow-y-auto flex-shrink-0 backdrop-blur-sm">
-                  <div className="p-4">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                      <SparklesIcon className="h-5 w-5 ml-2 text-purple-600" />
+                <div className="w-80 border-l border-gray-200/50 bg-gradient-to-b from-slate-50/80 via-gray-50/60 to-gray-100/40 overflow-y-auto flex-shrink-0 backdrop-blur-sm relative">
+                  {/* Background decoration */}
+                  <div className="absolute inset-0 opacity-[0.02]">
+                    <div className="absolute top-0 left-0 w-40 h-40 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full filter blur-3xl"></div>
+                    <div className="absolute bottom-0 right-0 w-32 h-32 bg-gradient-to-tl from-indigo-500 to-purple-500 rounded-full filter blur-3xl"></div>
+                  </div>
+                  <div className="p-6 relative z-10">
+                    <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
+                      <div className="w-1 h-8 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full ml-3"></div>
+                      <SparklesIcon className="h-6 w-6 ml-2 text-purple-600" />
                       ניתוח בינה מלאכותית
                     </h3>
 
                     {/* AI Summary */}
-                    <div className="mb-6 p-5 bg-white/80 rounded-xl border-2 border-gray-200/40 shadow-lg backdrop-blur-sm">
-                      <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                        <DocumentTextIcon className="h-4 w-4 ml-1" />
+                    <div className="mb-6 p-6 bg-gradient-to-br from-white/90 to-white/70 rounded-2xl border-2 border-gray-200/50 shadow-xl backdrop-blur-sm relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-2xl"></div>
+                      <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center relative z-10">
+                        <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full ml-1"></div>
+                        <DocumentTextIcon className="h-5 w-5 ml-1 text-blue-600" />
                         סיכום
                       </h4>
-                      <p className="text-sm text-gray-700">
+                      <p className="text-sm text-gray-700 leading-relaxed relative z-10">
                         {currentTicket.ai_summary || 'הלקוח פנה בנושא ' + categoryLabels[currentTicket.category] + ' ברמת עדיפות ' + priorityLabels[currentTicket.priority] + '. הכרטיס נמצא כעת בסטטוס ' + statusLabels[currentTicket.status] + '.'}
                       </p>
                     </div>
 
                     {/* Sentiment Analysis */}
-                    <div className="mb-6 p-5 bg-white/80 rounded-xl border-2 border-gray-200/40 shadow-lg backdrop-blur-sm">
-                      <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                        <SentimentIcon className={clsx('h-4 w-4 ml-1', getSentimentColor(currentTicket.sentiment_score))} />
+                    <div className="mb-6 p-6 bg-gradient-to-br from-white/90 to-white/70 rounded-2xl border-2 border-gray-200/50 shadow-xl backdrop-blur-sm relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-blue-500/5 rounded-2xl"></div>
+                      <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center relative z-10">
+                        <div className="w-1 h-5 bg-gradient-to-b from-green-500 to-blue-500 rounded-full ml-1"></div>
+                        <SentimentIcon className={clsx('h-5 w-5 ml-1', getSentimentColor(currentTicket.sentiment_score))} />
                         ניתוח סנטימנט
                       </h4>
-                      <div className="space-y-2">
+                      <div className="space-y-3 relative z-10">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">רמה:</span>
-                          <span className={clsx('text-sm font-medium', getSentimentColor(currentTicket.sentiment_score))}>
+                          <span className="text-sm text-gray-600 font-medium">רמה:</span>
+                          <span className={clsx('text-sm font-semibold', getSentimentColor(currentTicket.sentiment_score))}>
                             {getSentimentLabel(currentTicket.sentiment_score)}
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
                           <div 
                             className={clsx(
-                              'h-2 rounded-full transition-all',
-                              currentTicket.sentiment_score > 0 ? 'bg-green-500' : 'bg-red-500'
+                              'h-3 rounded-full transition-all duration-500 shadow-lg',
+                              currentTicket.sentiment_score > 0 ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-red-500 to-pink-500'
                             )}
                             style={{ width: `${Math.abs(currentTicket.sentiment_score) * 100}%` }}
                           />
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 font-medium px-2 py-1 bg-gray-100 rounded-full inline-block">
                           ציון: {currentTicket.sentiment_score.toFixed(2)}
                         </div>
                       </div>
                     </div>
 
                     {/* Risk Assessment */}
-                    <div className="mb-6 p-5 bg-white/80 rounded-xl border-2 border-gray-200/40 shadow-lg backdrop-blur-sm">
-                      <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                    <div className="mb-6 p-6 bg-gradient-to-br from-white/90 to-white/70 rounded-2xl border-2 border-gray-200/50 shadow-xl backdrop-blur-sm relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-red-500/5 rounded-2xl"></div>
+                      <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center relative z-10">
+                        <div className="w-1 h-5 bg-gradient-to-b from-orange-500 to-red-500 rounded-full ml-1"></div>
                         <ExclamationTriangleIcon className={clsx(
-                          'h-4 w-4 ml-1',
+                          'h-5 w-5 ml-1',
                           currentTicket.risk_level === 'high' ? 'text-red-500' :
                           currentTicket.risk_level === 'medium' ? 'text-orange-500' : 'text-green-500'
                         )} />
                         הערכת סיכונים
                       </h4>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">רמת סיכון:</span>
+                      <div className="flex items-center justify-between relative z-10">
+                        <span className="text-sm text-gray-600 font-medium">רמת סיכון:</span>
                         <span className={clsx(
-                          'text-sm font-medium px-2 py-1 rounded-full',
-                          currentTicket.risk_level === 'high' ? 'bg-red-100 text-red-800' :
-                          currentTicket.risk_level === 'medium' ? 'bg-orange-100 text-orange-800' :
-                          'bg-green-100 text-green-800'
+                          'text-sm font-semibold px-3 py-2 rounded-full shadow-sm',
+                          currentTicket.risk_level === 'high' ? 'bg-gradient-to-r from-red-100 to-red-200 text-red-800' :
+                          currentTicket.risk_level === 'medium' ? 'bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800' :
+                          'bg-gradient-to-r from-green-100 to-green-200 text-green-800'
                         )}>
                           {riskLabels[currentTicket.risk_level]}
                         </span>
@@ -1380,16 +1468,20 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
                     </div>
 
                     {/* Category & Priority */}
-                    <div className="mb-6 p-5 bg-white/80 rounded-xl border-2 border-gray-200/40 shadow-lg backdrop-blur-sm">
-                      <h4 className="text-sm font-medium text-gray-900 mb-3">סיווג</h4>
-                      <div className="space-y-2">
+                    <div className="mb-6 p-6 bg-gradient-to-br from-white/90 to-white/70 rounded-2xl border-2 border-gray-200/50 shadow-xl backdrop-blur-sm relative overflow-hidden">
+                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-indigo-500/5 rounded-2xl"></div>
+                      <h4 className="text-lg font-bold text-gray-900 mb-4 relative z-10 flex items-center">
+                        <div className="w-1 h-5 bg-gradient-to-b from-purple-500 to-indigo-500 rounded-full ml-1"></div>
+                        סיווג
+                      </h4>
+                      <div className="space-y-3 relative z-10">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">קטגוריה:</span>
-                          <span className="text-sm font-medium">{categoryLabels[currentTicket.category]}</span>
+                          <span className="text-sm text-gray-600 font-medium">קטגוריה:</span>
+                          <span className="text-sm font-semibold px-3 py-1 bg-gray-100 rounded-full">{categoryLabels[currentTicket.category]}</span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">עדיפות:</span>
-                          <span className={clsx('text-sm font-medium px-2 py-1 rounded-full', priorityColors[currentTicket.priority])}>
+                          <span className="text-sm text-gray-600 font-medium">עדיפות:</span>
+                          <span className={clsx('text-sm font-semibold px-3 py-2 rounded-full shadow-sm', priorityColors[currentTicket.priority])}>
                             {priorityLabels[currentTicket.priority]}
                           </span>
                         </div>
@@ -1398,30 +1490,32 @@ export function TicketDetailModal({ ticket, isOpen, onClose, onTicketUpdated }: 
 
                     {/* Suggested Replies */}
                     {suggestedReplies.length > 0 && (
-                      <div className="p-5 bg-white/80 rounded-xl border-2 border-gray-200/40 shadow-lg backdrop-blur-sm">
-                        <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                          <ChatBubbleLeftRightIcon className="h-4 w-4 ml-1 text-blue-600" />
+                      <div className="p-6 bg-gradient-to-br from-white/90 to-white/70 rounded-2xl border-2 border-gray-200/50 shadow-xl backdrop-blur-sm relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 rounded-2xl"></div>
+                        <h4 className="text-lg font-bold text-gray-900 mb-4 flex items-center relative z-10">
+                          <div className="w-1 h-5 bg-gradient-to-b from-blue-500 to-indigo-500 rounded-full ml-1"></div>
+                          <ChatBubbleLeftRightIcon className="h-5 w-5 ml-1 text-blue-600" />
                           תגובות מוצעות
                         </h4>
-                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                        <div className="space-y-3 max-h-40 overflow-y-auto relative z-10">
                           {suggestedReplies.map((reply, index) => (
                             <div key={index} className="flex space-x-2 space-x-reverse">
                               <button
                                 onClick={() => handleUseSuggestedReply(reply)}
-                                className="flex-1 text-right p-2 text-xs bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors flex items-center justify-between"
+                                className="flex-1 text-right p-3 text-xs bg-gradient-to-r from-blue-50 to-blue-100/50 hover:from-blue-100 hover:to-blue-200/50 rounded-xl border border-blue-200/50 transition-all duration-200 flex items-center justify-between shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
                               >
-                                <span>{reply.length > 80 ? reply.substring(0, 80) + '...' : reply}</span>
-                                <PaperAirplaneIcon className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                                <span className="font-medium">{reply.length > 80 ? reply.substring(0, 80) + '...' : reply}</span>
+                                <PaperAirplaneIcon className="h-4 w-4 text-blue-500 flex-shrink-0" />
                               </button>
                               <button
                                 onClick={() => {
                                   setNewMessage(reply);
                                   toast.success('הפתרון הועתק לתיבת ההודעה');
                                 }}
-                                className="p-2 text-xs bg-gray-100 hover:bg-gray-200 rounded border border-gray-200 transition-colors"
+                                className="p-3 text-xs bg-gradient-to-r from-gray-100 to-gray-200/50 hover:from-gray-200 hover:to-gray-300/50 rounded-xl border border-gray-200/50 transition-all duration-200 shadow-sm hover:shadow-md transform hover:-translate-y-0.5"
                                 title="העתק לתיבת ההודעה"
                               >
-                                <ClipboardDocumentIcon className="h-3 w-3 text-gray-500" />
+                                <ClipboardDocumentIcon className="h-4 w-4 text-gray-500" />
                               </button>
                             </div>
                           ))}

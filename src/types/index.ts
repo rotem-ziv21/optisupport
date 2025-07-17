@@ -20,6 +20,8 @@ export interface Ticket {
   assigned_to?: string;
   created_at: string;
   updated_at: string;
+  in_progress_at?: string; // זמן מעבר לטיפול
+  resolved_at?: string; // זמן פתרון הכרטיס
   tags: string[];
   sentiment_score: number;
   risk_level: 'low' | 'medium' | 'high';
@@ -56,6 +58,23 @@ export interface User {
   avatar_url?: string;
   created_at: string;
   is_active: boolean;
+  last_active?: string;
+  permissions?: Record<string, boolean>;
+}
+
+export interface UserActivity {
+  id: string;
+  user_id: string;
+  action_type: 'ticket_update' | 'message_sent' | 'status_change' | 'ticket_assigned' | 'login' | 'logout' | 'ticket_created' | 'ticket_resolved';
+  action_details: Record<string, any>;
+  related_ticket_id?: string;
+  created_at: string;
+  ip_address?: string;
+}
+
+export interface UserActivityWithDetails extends UserActivity {
+  user: User;
+  ticket?: Ticket;
 }
 
 export interface AIAnalysis {

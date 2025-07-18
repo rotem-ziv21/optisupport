@@ -725,6 +725,22 @@ export class AutomationService {
       }
       return false;
       
+      case TriggerType.TICKET_RESOLVED:
+        console.log('DEBUG - Evaluating TICKET_RESOLVED trigger');
+        // בדיקה אם זה אירוע של כרטיס שנפתר
+        const isTicketResolved = context.ticketResolved || 
+                                (context.newStatus === 'resolved') ||
+                                (context.ticket?.status === 'resolved');
+        
+        console.log('DEBUG - TICKET_RESOLVED check:', {
+          ticketResolved: context.ticketResolved,
+          newStatus: context.newStatus,
+          ticketStatus: context.ticket?.status,
+          result: isTicketResolved
+        });
+        
+        return isTicketResolved;
+      
       default:
         console.log('DEBUG - Unknown trigger type:', trigger.type);
         return false;
@@ -1072,6 +1088,48 @@ export class AutomationService {
               },
             },
             webhook: 'https://webhook.site/test-new-ticket',
+          },
+        ],
+      },
+      // אוטומציה לדוגמה עם טריגר TICKET_RESOLVED
+      {
+        id: 'demo-ticket-resolved',
+        name: 'שליחת webhook כשכרטיס נפתר',
+        description: 'שולח webhook עם פרטי הכרטיס כשהוא נפתר',
+        isActive: true,
+        is_active: true,
+        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        trigger: {
+          id: 'trigger-resolved',
+          name: 'כרטיס נפתר',
+          type: TriggerType.TICKET_RESOLVED,
+          description: 'מופעל כשכרטיס מקבל סטטוס resolved',
+          conditions: {}
+        },
+        actions: [
+          {
+            id: 'action-webhook-resolved',
+            name: 'שליחת webhook',
+            type: ActionType.WEBHOOK,
+            description: 'שולח webhook עם פרטי הכרטיס שנפתר',
+            parameters: {
+              url: 'https://webhook.site/test-resolved-ticket',
+              ticketData: {
+                id: '{{ticket.id}}',
+                title: '{{ticket.title}}',
+                priority: '{{ticket.priority}}',
+                status: '{{ticket.status}}',
+                customer: '{{ticket.customer_name}}',
+                customer_email: '{{ticket.customer_email}}',
+                description: '{{ticket.description}}',
+                resolved_at: '{{ticket.resolved_at}}'
+              },
+              message: 'Ticket {{ticket.id}} has been resolved'
+            },
+            webhook: 'https://webhook.site/test-resolved-ticket',
           },
         ],
       },

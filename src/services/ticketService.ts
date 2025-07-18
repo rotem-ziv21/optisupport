@@ -324,17 +324,25 @@ class TicketService {
   }
 
   async updateTicket(id: string, updates: Partial<Ticket>): Promise<Ticket> {
+    // קבלת הכרטיס הקיים לבדיקת שינוי סטטוס
+    const existingTicket = await this.getTicket(id);
+    if (!existingTicket) {
+      throw new Error('Ticket not found');
+    }
+
     if (!isSupabaseConfigured || !supabase) {
-      const existingTicket = mockTickets.find(t => t.id === id);
-      if (!existingTicket) {
-        throw new Error('Ticket not found');
-      }
       const updatedTicket = { ...existingTicket, ...updates };
       // Update the mock data array
       const index = mockTickets.findIndex(t => t.id === id);
       if (index !== -1) {
         mockTickets[index] = updatedTicket;
       }
+      
+      // הפעלת אוטומציות אם הסטטוס השתנה
+      if (updates.status && updates.status !== existingTicket.status) {
+        await this.triggerAutomationsForStatusChange(updatedTicket, existingTicket.status, updates.status);
+      }
+      
       return updatedTicket;
     }
 
@@ -365,10 +373,17 @@ class TicketService {
       throw new Error(`Failed to update ticket: ${error.message}`);
     }
 
-    return {
+    const updatedTicket = {
       ...data,
       conversation: [] // Will be loaded separately if needed
     };
+
+    // הפעלת אוטומציות אם הסטטוס השתנה
+    if (updates.status && updates.status !== existingTicket.status) {
+      await this.triggerAutomationsForStatusChange(updatedTicket, existingTicket.status, updates.status);
+    }
+
+    return updatedTicket;
   }
 
   async addMessage(ticketId: string, message: {
@@ -772,6 +787,104 @@ class TicketService {
       console.log('DEBUG - Finished checking all automations for new message');
     } catch (error) {
       console.error('DEBUG - Error in triggerAutomationsForNewMessage:', error);
+    }
+  }
+
+  // הפעלת אוטומציות כשסטטוס כרטיס משתנה
+  private async triggerAutomationsForStatusChange(ticket: Ticket, oldStatus: string, newStatus: string): Promise<void> {
+    console.log(`DEBUG - triggerAutomationsForStatusChange called for ticket ${ticket.id}, status changed from ${oldStatus} to ${newStatus}`);
+    
+    try {
+      const automations = await automationService.getAutomations();
+      console.log(`DEBUG - Found ${automations.length} automations to check`);
+      
+      let foundMatchingAutomation = false;
+      
+      for (const automation of automations) {
+        // בדיקה שהאוטומציה פעילה
+        if (!automation.isActive && !automation.is_active) {
+          console.log(`DEBUG - Automation ${automation.id} is not active, skipping`);
+          continue;
+        }
+        
+        console.log(`DEBUG - Checking automation ${automation.id} with trigger type: ${automation.trigger?.type}`);
+        
+        try {
+          // בדיקה לטריגר STATUS_CHANGED
+          if (automation.trigger?.type === 'status_changed') {
+            console.log(`DEBUG - Found STATUS_CHANGED automation: ${automation.id}`);
+            foundMatchingAutomation = true;
+            
+            const context = {
+              ticket: {
+                id: ticket.id,
+                title: ticket.title,
+                description: ticket.description,
+                status: ticket.status,
+                priority: ticket.priority,
+                category: ticket.category,
+                customer_name: ticket.customer_name,
+                customer_email: ticket.customer_email,
+                customer_phone: ticket.customer_phone,
+                company_name: ticket.company_name,
+                created_at: ticket.created_at,
+                updated_at: ticket.updated_at,
+                resolved_at: ticket.resolved_at,
+                in_progress_at: ticket.in_progress_at
+              },
+              oldStatus,
+              newStatus,
+              statusChanged: true
+            };
+            
+            console.log(`DEBUG - Triggering automation ${automation.id} with context:`, context);
+            await automationService.triggerAutomation(automation.id, context);
+          }
+          // בדיקה לטריגר TICKET_RESOLVED כשהסטטוס החדש הוא resolved
+          else if (automation.trigger?.type === 'ticket_resolved' && newStatus === 'resolved') {
+            console.log(`DEBUG - Found TICKET_RESOLVED automation: ${automation.id}`);
+            foundMatchingAutomation = true;
+            
+            const context = {
+              ticket: {
+                id: ticket.id,
+                title: ticket.title,
+                description: ticket.description,
+                status: ticket.status,
+                priority: ticket.priority,
+                category: ticket.category,
+                customer_name: ticket.customer_name,
+                customer_email: ticket.customer_email,
+                customer_phone: ticket.customer_phone,
+                company_name: ticket.company_name,
+                created_at: ticket.created_at,
+                updated_at: ticket.updated_at,
+                resolved_at: ticket.resolved_at,
+                in_progress_at: ticket.in_progress_at
+              },
+              oldStatus,
+              newStatus,
+              ticketResolved: true
+            };
+            
+            console.log(`DEBUG - Triggering TICKET_RESOLVED automation ${automation.id} with context:`, context);
+            await automationService.triggerAutomation(automation.id, context);
+          } else {
+            console.log(`DEBUG - Automation ${automation.id} does not have STATUS_CHANGED or TICKET_RESOLVED trigger, skipping`);
+          }
+        } catch (error) {
+          console.error(`DEBUG - Error triggering automation ${automation.id}:`, error);
+          // המשך לאוטומציה הבאה גם אם זו נכשלה
+        }
+      }
+      
+      if (!foundMatchingAutomation) {
+        console.log('DEBUG - No matching automations found for status change');
+      }
+      
+      console.log('DEBUG - Finished checking all automations for status change');
+    } catch (error) {
+      console.error('DEBUG - Error in triggerAutomationsForStatusChange:', error);
     }
   }
 

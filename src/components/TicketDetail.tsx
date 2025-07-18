@@ -5,6 +5,7 @@ import { ticketService } from '../services/ticketService';
 import { knowledgeBaseService } from '../services/knowledgeBaseService';
 import { enhancedSolutionService } from '../services/enhancedSolutionService';
 import { Ticket, Message } from '../types';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import {
   TicketIcon,
   ClockIcon,
@@ -90,6 +91,9 @@ export const TicketDetail: React.FC = () => {
   const [sentimentScore, setSentimentScore] = useState<number>(0);
   const [riskScore, setRiskScore] = useState<number>(0);
   const [aiAnalysisLoading, setAiAnalysisLoading] = useState(false);
+  
+  // משתנים לזמן אמת
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
 
   useEffect(() => {
     const fetchTicket = async () => {
@@ -113,6 +117,76 @@ export const TicketDetail: React.FC = () => {
     };
 
     fetchTicket();
+    
+    // הגדרת realtime subscription להודעות חדשות ועדכוני כרטיס (ממשק הנציג)
+    let subscription: any = null;
+    
+    if (isSupabaseConfigured && supabase && id) {
+      subscription = supabase
+        .channel(`agent-ticket-${id}`)
+        // subscription להודעות חדשות מהלקוח
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `ticket_id=eq.${id}`
+          },
+          async (payload) => {
+            console.log('Agent: New message received via realtime:', payload.new);
+            
+            // עדכון הכרטיס עם ההודעה החדשה
+            try {
+              const updatedTicket = await ticketService.getTicket(id);
+              if (updatedTicket) {
+                setTicket(updatedTicket);
+              }
+            } catch (error) {
+              console.error('Agent: Failed to refresh ticket after new message:', error);
+            }
+          }
+        )
+        // subscription לעדכוני הכרטיס (שינוי סטטוס וכו')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'tickets',
+            filter: `id=eq.${id}`
+          },
+          async (payload) => {
+            console.log('Agent: Ticket updated via realtime:', payload.new);
+            
+            // עדכון הכרטיס עם הנתונים החדשים
+            try {
+              const updatedTicket = await ticketService.getTicket(id);
+              if (updatedTicket) {
+                setTicket(updatedTicket);
+              }
+            } catch (error) {
+              console.error('Agent: Failed to refresh ticket after update:', error);
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            setIsRealtimeConnected(true);
+            console.log('Agent: Realtime subscription connected for ticket:', id);
+          } else if (status === 'CLOSED') {
+            setIsRealtimeConnected(false);
+            console.log('Agent: Realtime subscription closed for ticket:', id);
+          }
+        });
+    }
+    
+    // ניקוי ה-subscription כשהקומפוננט נמחק
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, [id]);
   
   // פונקציות עזר לניתוח סנטימנט
@@ -485,7 +559,22 @@ export const TicketDetail: React.FC = () => {
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <h1 className="text-xl sm:text-2xl font-bold text-white mb-2 break-words">{ticket.title}</h1>
+                <div className="flex items-center gap-2 mb-2">
+                  <h1 className="text-xl sm:text-2xl font-bold text-white break-words">{ticket.title}</h1>
+                  {/* אינדיקטור חיבור זמן אמת */}
+                  {isSupabaseConfigured && (
+                    <div className="flex items-center gap-1 text-xs text-blue-100">
+                      <div className={`w-2 h-2 rounded-full ${
+                        isRealtimeConnected 
+                          ? 'bg-green-400 animate-pulse' 
+                          : 'bg-gray-400'
+                      }`} />
+                      <span className="opacity-75">
+                        {isRealtimeConnected ? 'מחובר לזמן אמת' : 'לא מחובר'}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center">
                   <p className="text-blue-100 text-sm opacity-90">כרטיס מספר #{ticket.id}</p>
                   <button 

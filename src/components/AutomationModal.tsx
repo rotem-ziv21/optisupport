@@ -118,6 +118,8 @@ export default function AutomationModal({
         return 'כרטיס חדש נוצר';
       case TriggerType.TICKET_UPDATED:
         return 'כרטיס עודכן';
+      case TriggerType.TICKET_RESOLVED:
+        return 'כרטיס נפתר';
       case TriggerType.STATUS_CHANGED:
         return 'סטטוס כרטיס השתנה';
       case TriggerType.MESSAGE_RECEIVED:
@@ -133,6 +135,8 @@ export default function AutomationModal({
         return 'האוטומציה תופעל כאשר נוצר כרטיס חדש';
       case TriggerType.TICKET_UPDATED:
         return 'האוטומציה תופעל כאשר כרטיס מתעדכן';
+      case TriggerType.TICKET_RESOLVED:
+        return 'האוטומציה תופעל כאשר כרטיס נפתר (סטטוס resolved)';
       case TriggerType.STATUS_CHANGED:
         return 'האוטומציה תופעל כאשר סטטוס הכרטיס משתנה';
       case TriggerType.MESSAGE_RECEIVED:
@@ -422,6 +426,7 @@ export default function AutomationModal({
                   >
                     <option value={TriggerType.TICKET_CREATED}>כרטיס חדש נוצר</option>
                     <option value={TriggerType.TICKET_UPDATED}>כרטיס עודכן</option>
+                    <option value={TriggerType.TICKET_RESOLVED}>כרטיס נפתר</option>
                     <option value={TriggerType.STATUS_CHANGED}>סטטוס כרטיס השתנה</option>
                     <option value={TriggerType.MESSAGE_RECEIVED}>התקבלה הודעה חדשה</option>
                   </select>

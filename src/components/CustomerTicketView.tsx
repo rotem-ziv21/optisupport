@@ -17,6 +17,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { ticketService } from '../services/ticketService';
 import { Ticket, Message } from '../types';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export function CustomerTicketView() {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +28,7 @@ export function CustomerTicketView() {
   const [error, setError] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   
   useEffect(() => {
     const fetchTicket = async () => {
@@ -68,6 +70,88 @@ export function CustomerTicketView() {
     };
     
     fetchTicket();
+    
+    // הגדרת realtime subscription להודעות חדשות ועדכוני כרטיס
+    let subscription: any = null;
+    
+    if (isSupabaseConfigured && supabase && id) {
+      subscription = supabase
+        .channel(`ticket-${id}`)
+        // subscription להודעות חדשות
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `ticket_id=eq.${id}`
+          },
+          async (payload) => {
+            console.log('New message received via realtime:', payload.new);
+            
+            // עדכון הכרטיס עם ההודעה החדשה
+            try {
+              const updatedTicket = await ticketService.getTicket(id);
+              if (updatedTicket) {
+                setTicket(updatedTicket);
+                
+                // אם זו הודעה מנציג, נסמן אותה כנקראה
+                if (payload.new.sender === 'agent') {
+                  setTimeout(async () => {
+                    try {
+                      await ticketService.markAgentMessagesAsRead(id);
+                      setTicket(prev => prev ? {...prev, has_unread_agent_messages: false} : null);
+                    } catch (error) {
+                      console.error('Failed to mark agent message as read:', error);
+                    }
+                  }, 1000); // המתנה של שנייה כדי לוודא שההודעה נשמרה
+                }
+              }
+            } catch (error) {
+              console.error('Failed to refresh ticket after new message:', error);
+            }
+          }
+        )
+        // subscription לעדכוני הכרטיס (שינוי סטטוס וכו')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'tickets',
+            filter: `id=eq.${id}`
+          },
+          async (payload) => {
+            console.log('Ticket updated via realtime:', payload.new);
+            
+            // עדכון הכרטיס עם הנתונים החדשים
+            try {
+              const updatedTicket = await ticketService.getTicket(id);
+              if (updatedTicket) {
+                setTicket(updatedTicket);
+              }
+            } catch (error) {
+              console.error('Failed to refresh ticket after update:', error);
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            setIsRealtimeConnected(true);
+            console.log('Realtime subscription connected for ticket:', id);
+          } else if (status === 'CLOSED') {
+            setIsRealtimeConnected(false);
+            console.log('Realtime subscription closed for ticket:', id);
+          }
+        });
+    }
+    
+    // ניקוי ה-subscription כשהקומפוננט נמחק
+    return () => {
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, [id]);
   
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -226,9 +310,18 @@ export function CustomerTicketView() {
         {/* כותרת הכרטיס */}
         <div className="px-8 py-8 sm:px-10 bg-gradient-to-r from-blue-100 via-indigo-50 to-purple-50 border-b border-blue-200/50">
           <div className="flex justify-between items-center flex-wrap gap-4">
-            <h3 className="text-2xl leading-tight font-bold text-slate-800">
-              {ticket?.title}
-            </h3>
+            <div className="flex items-center gap-3">
+              <h3 className="text-2xl leading-tight font-bold text-slate-800">
+                {ticket?.title}
+              </h3>
+              {/* אינדיקטור חיבור זמן אמת */}
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-500' : 'bg-gray-400'} ${isRealtimeConnected ? 'animate-pulse' : ''}`}></div>
+                <span className={`text-xs font-medium ${isRealtimeConnected ? 'text-green-600' : 'text-gray-500'}`}>
+                  {isRealtimeConnected ? 'מחובר לזמן אמת' : 'לא מחובר'}
+                </span>
+              </div>
+            </div>
             <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold shadow-md ${getStatusColor(ticket?.status || '')}`}>
               {ticket?.status}
             </span>

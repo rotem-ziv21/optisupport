@@ -34,6 +34,7 @@ export enum TriggerType {
   TICKET_CREATED = 'ticket_created',
   TICKET_UPDATED = 'ticket_updated',
   TICKET_CLOSED = 'ticket_closed',
+  TICKET_RESOLVED = 'ticket_resolved',
   TICKET_REOPENED = 'ticket_reopened',
   MESSAGE_RECEIVED = 'message_received',
   STATUS_CHANGED = 'status_changed',

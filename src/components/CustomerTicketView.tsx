@@ -184,6 +184,24 @@ export function CustomerTicketView() {
     }
   };
   
+  // תרגום סטטוס מאנגלית לעברית עבור הלקוח
+  const translateStatus = (status: string) => {
+    switch (status) {
+      case 'open':
+        return 'פתוח';
+      case 'in_progress':
+        return 'בטיפול';
+      case 'pending':
+        return 'ממתין לתגובה';
+      case 'resolved':
+        return 'נפתר';
+      case 'closed':
+        return 'סגור';
+      default:
+        return status; // אם לא מכירים את הסטטוס, תחזיר כמו שזה
+    }
+  };
+  
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'פתוח':
@@ -192,6 +210,8 @@ export function CustomerTicketView() {
         return 'bg-blue-100 text-blue-800 border border-blue-200';
       case 'ממתין לתגובה':
         return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+      case 'נפתר':
+        return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
       case 'סגור':
         return 'bg-gray-100 text-gray-800 border border-gray-200';
       default:
@@ -322,8 +342,8 @@ export function CustomerTicketView() {
                 </span>
               </div>
             </div>
-            <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold shadow-md ${getStatusColor(ticket?.status || '')}`}>
-              {ticket?.status}
+            <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold shadow-md ${getStatusColor(translateStatus(ticket?.status || ''))}`}>
+              {translateStatus(ticket?.status || '')}
             </span>
           </div>
           <p className="mt-3 max-w-2xl text-sm text-slate-600 flex items-center">

@@ -301,21 +301,21 @@ export function CustomerTicketView() {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-12 px-4 sm:px-6 lg:px-8 rtl">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-6 sm:py-12 px-2 sm:px-4 lg:px-8 rtl">
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        className="max-w-4xl mx-auto bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl overflow-hidden border border-white/30">
+        className="max-w-4xl mx-auto bg-white/95 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-white/30">
         {/* כותרת הכרטיס */}
-        <div className="px-8 py-8 sm:px-10 bg-gradient-to-r from-blue-100 via-indigo-50 to-purple-50 border-b border-blue-200/50">
-          <div className="flex justify-between items-center flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <h3 className="text-2xl leading-tight font-bold text-slate-800">
+        <div className="px-4 py-6 sm:px-8 sm:py-8 bg-gradient-to-r from-blue-100 via-indigo-50 to-purple-50 border-b border-blue-200/50">
+          <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-3 sm:gap-4">
+            <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-col sm:flex-row w-full sm:w-auto">
+              <h3 className="text-lg sm:text-2xl leading-tight font-bold text-slate-800 break-words">
                 {ticket?.title}
               </h3>
               {/* אינדיקטור חיבור זמן אמת */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <div className={`w-2 h-2 rounded-full ${isRealtimeConnected ? 'bg-green-500' : 'bg-gray-400'} ${isRealtimeConnected ? 'animate-pulse' : ''}`}></div>
                 <span className={`text-xs font-medium ${isRealtimeConnected ? 'text-green-600' : 'text-gray-500'}`}>
                   {isRealtimeConnected ? 'מחובר לזמן אמת' : 'לא מחובר'}
@@ -331,11 +331,11 @@ export function CustomerTicketView() {
           </p>
         </div>
         
-        {/* פרטי הכרטיס */}
-        <div className="px-8 py-8 sm:p-10">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <div className="bg-gradient-to-r from-slate-50 to-blue-50 p-6 rounded-2xl border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300">
-              <h5 className="text-lg font-semibold text-slate-800 mb-4 pb-2 border-b border-blue-100">מידע זמנים</h5>
+        {/* תוכן הכרטיס */}
+        <div className="p-4 sm:p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
+            <div className="bg-gradient-to-r from-blue-50 to-slate-50 p-4 sm:p-6 rounded-2xl border border-blue-200/50 shadow-lg hover:shadow-xl transition-all duration-300">
+              <h5 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b border-blue-100">סטטוס ותאריכים</h5>
               <div className="flex items-center text-sm text-slate-700 mb-3">
                 <ClockIcon className="h-5 w-5 text-blue-600 ml-3" />
                 <span className="font-semibold">נפתח ב:</span> <span className="mr-2">{ticket?.created_at ? formatDate(ticket.created_at) : '-'}</span>
@@ -347,8 +347,8 @@ export function CustomerTicketView() {
                 </div>
               )}
             </div>
-            <div className="bg-gradient-to-r from-slate-50 to-indigo-50 p-6 rounded-2xl border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300">
-              <h5 className="text-lg font-semibold text-slate-800 mb-4 pb-2 border-b border-indigo-100">פרטי הפנייה</h5>
+            <div className="bg-gradient-to-r from-slate-50 to-indigo-50 p-4 sm:p-6 rounded-2xl border border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300">
+              <h5 className="text-base sm:text-lg font-semibold text-slate-800 mb-3 sm:mb-4 pb-2 border-b border-indigo-100">פרטי הפנייה</h5>
               <div className="flex items-center text-sm text-slate-700 mb-3">
                 <TagIcon className="h-5 w-5 text-indigo-600 ml-3" />
                 <span className="font-semibold">קטגוריה:</span> <span className="mr-2">{ticket?.category || '-'}</span>
@@ -362,25 +362,25 @@ export function CustomerTicketView() {
             </div>
           </div>
           
-          <div className="mt-8">
-            <h4 className="text-xl font-bold text-slate-800 mb-4 flex items-center bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
-              <DocumentTextIcon className="h-6 w-6 ml-3 text-blue-600" />
+          <div className="mt-6 sm:mt-8">
+            <h4 className="text-lg sm:text-xl font-bold text-slate-800 mb-3 sm:mb-4 flex items-center bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent">
+              <DocumentTextIcon className="h-5 w-5 sm:h-6 sm:w-6 ml-2 sm:ml-3 text-blue-600" />
               תיאור הפנייה:
             </h4>
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-2xl text-slate-700 whitespace-pre-wrap border border-blue-200/50 shadow-lg leading-relaxed hover:shadow-xl transition-all duration-300">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-2xl text-slate-700 whitespace-pre-wrap border border-blue-200/50 shadow-lg leading-relaxed hover:shadow-xl transition-all duration-300 text-sm sm:text-base">
               {ticket?.description || 'אין תיאור'}
             </div>
           </div>
         </div>
         
         {/* שיחה */}
-        <div className="mt-12 border-t border-slate-200/50 pt-10 px-8 sm:px-10">
-          <h3 className="text-2xl font-bold text-slate-800 mb-6 flex items-center bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            <ChatBubbleLeftRightIcon className="h-7 w-7 ml-3 text-blue-600" />
+        <div className="mt-8 sm:mt-12 border-t border-slate-200/50 pt-6 sm:pt-10 px-4 sm:px-8">
+          <h3 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4 sm:mb-6 flex items-center bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <ChatBubbleLeftRightIcon className="h-6 w-6 sm:h-7 sm:w-7 ml-2 sm:ml-3 text-blue-600" />
             שיחה
           </h3>
           
-          <div className="mt-6 space-y-6 max-h-[450px] overflow-y-auto p-6 rounded-2xl bg-gradient-to-b from-slate-50/50 to-white/50 border border-slate-100 shadow-inner">
+          <div className="mt-4 sm:mt-6 space-y-4 sm:space-y-6 max-h-[400px] sm:max-h-[450px] overflow-y-auto p-3 sm:p-6 rounded-2xl bg-gradient-to-b from-slate-50/50 to-white/50 border border-slate-100 shadow-inner">
             {ticket.conversation && ticket.conversation.length > 0 ? (
               ticket.conversation.map((message: Message, index) => (
                 <motion.div 
@@ -391,7 +391,7 @@ export function CustomerTicketView() {
                   className={`flex ${message.sender === 'customer' ? 'justify-start' : 'justify-end'}`}
                 >
                   <div 
-                    className={`rounded-2xl px-6 py-4 max-w-[85%] shadow-lg backdrop-blur-sm hover:shadow-xl transition-all duration-300 ${
+                    className={`rounded-2xl px-3 py-3 sm:px-6 sm:py-4 max-w-[90%] sm:max-w-[85%] shadow-lg backdrop-blur-sm hover:shadow-xl transition-all duration-300 ${
                       message.sender === 'customer' 
                         ? 'bg-gradient-to-r from-blue-100 to-indigo-50 text-blue-900 border border-blue-200/50' 
                         : message.sender === 'system'
@@ -405,7 +405,7 @@ export function CustomerTicketView() {
                       </span>
                       <span className="mr-3">{formatDate(message.created_at)}</span>
                     </div>
-                    <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                    <div className="text-sm sm:text-base whitespace-pre-wrap leading-relaxed">
                       {message.sender === 'agent' ? 
                         (() => {
                           // Check if content is a string that might be JSON
@@ -460,31 +460,36 @@ export function CustomerTicketView() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
                 onSubmit={handleSendMessage} 
-                className="mt-10 p-6 bg-gradient-to-r from-white to-blue-50 rounded-2xl border border-blue-100/50 shadow-lg hover:shadow-xl transition-all duration-300">
-                <h4 className="text-lg font-semibold text-slate-700 mb-4 flex items-center">
-                  <PencilSquareIcon className="h-5 w-5 ml-2 text-blue-600" />
+                className="mt-6 sm:mt-10 p-4 sm:p-6 bg-gradient-to-r from-white to-blue-50 rounded-2xl border border-blue-100/50 shadow-lg hover:shadow-xl transition-all duration-300">
+                <h4 className="text-base sm:text-lg font-semibold text-slate-700 mb-3 sm:mb-4 flex items-center">
+                  <PencilSquareIcon className="h-4 w-4 sm:h-5 sm:w-5 ml-2 text-blue-600" />
                   הוסף הודעה חדשה
                 </h4>
-                <div className="flex gap-4">
+                {/* Layout מותאם למובייל */}
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <div className="flex-grow">
                     <textarea
-                      rows={3}
+                      rows={4}
                       name="message"
                       id="message"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      className="shadow-lg block w-full focus:ring-blue-500 focus:border-blue-500 sm:text-sm border border-slate-300 rounded-xl p-4 bg-white/80 backdrop-blur-sm transition-all duration-200 focus:shadow-xl"
+                      className="shadow-lg block w-full focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm border border-slate-300 rounded-xl p-4 bg-white/80 backdrop-blur-sm transition-all duration-200 focus:shadow-xl min-h-[120px] resize-none"
                       placeholder="הקלד הודעה..."
                       disabled={sendingMessage}
+                      style={{
+                        fontSize: '16px', // מונע זום בנייד iOS
+                        lineHeight: '1.5'
+                      }}
                     />
                   </div>
-                  <div className="flex-shrink-0 self-end">
+                  <div className="flex-shrink-0 sm:self-end">
                     <motion.button
                       whileHover={{ scale: 1.05, y: -1 }}
                       whileTap={{ scale: 0.95 }}
                       type="submit"
                       disabled={sendingMessage || !newMessage.trim()}
-                      className={`inline-flex items-center px-8 py-3 border border-transparent text-sm font-semibold rounded-xl shadow-lg text-white transition-all duration-200 ${
+                      className={`w-full sm:w-auto inline-flex items-center justify-center px-6 py-4 sm:px-8 sm:py-3 border border-transparent text-base sm:text-sm font-semibold rounded-xl shadow-lg text-white transition-all duration-200 ${
                         sendingMessage || !newMessage.trim()
                           ? 'bg-blue-300 cursor-not-allowed'
                           : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 hover:shadow-xl'

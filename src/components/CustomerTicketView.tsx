@@ -184,6 +184,37 @@ export function CustomerTicketView() {
     }
   };
   
+  // פונקציה לעיבוד קישורים בהודעות והפיכתם ללחיצים
+  const processMessageContent = (content: string) => {
+    // Regular expression לזיהוי URLs
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    
+    // חלוקת התוכן לחלקים עם ובלי קישורים
+    const parts = content.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      // אם החלק הוא URL, הפוך אותו לקישור לחיץ
+      if (urlRegex.test(part)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 hover:text-blue-800 underline font-medium transition-colors duration-200"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            {part}
+          </a>
+        );
+      }
+      // אחרת, החזר את הטקסט כמו שהוא
+      return part;
+    });
+  };
+  
   // תרגום סטטוס מאנגלית לעברית עבור הלקוח
   const translateStatus = (status: string) => {
     switch (status) {
@@ -428,6 +459,8 @@ export function CustomerTicketView() {
                     <div className="text-sm sm:text-base whitespace-pre-wrap leading-relaxed">
                       {message.sender === 'agent' ? 
                         (() => {
+                          let contentToProcess = '';
+                          
                           // Check if content is a string that might be JSON
                           if (typeof message.content === 'string' && 
                               (message.content.startsWith('{') || message.content.startsWith('['))) {
@@ -436,32 +469,41 @@ export function CustomerTicketView() {
                               
                               // Handle object with content field
                               if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && parsed.content) {
-                                return parsed.content;
+                                contentToProcess = parsed.content;
                               }
                               // Handle array of actions
                               else if (Array.isArray(parsed) && parsed.length > 0) {
                                 if (parsed[0].content) {
-                                  return parsed[0].content;
+                                  contentToProcess = parsed[0].content;
+                                } else {
+                                  contentToProcess = message.content;
                                 }
+                              } else {
+                                contentToProcess = message.content;
                               }
-                              // Fall back to original content
-                              return message.content;
                             } catch (e) {
                               // If parsing fails, use the content as is
-                              return message.content;
+                              contentToProcess = message.content;
                             }
                           }
                           // If content is already an object with a content field
                           else if (typeof message.content === 'object' && message.content !== null) {
                             const content = message.content as any;
                             if (content.content) {
-                              return content.content;
+                              contentToProcess = content.content;
+                            } else {
+                              contentToProcess = String(message.content);
                             }
+                          } else {
+                            // Default case: use the content as is
+                            contentToProcess = String(message.content);
                           }
-                          // Default case: return the content as is
-                          return message.content;
+                          
+                          // עיבוד קישורים בתוכן
+                          return processMessageContent(contentToProcess);
                         })() : 
-                        message.content
+                        // עבור הודעות לקוח גם עם עיבוד קישורים
+                        processMessageContent(String(message.content))
                       }
                     </div>
                   </div>

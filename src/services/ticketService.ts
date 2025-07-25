@@ -97,6 +97,7 @@ class TicketService {
     category?: string;
     assigned_to?: string;
     search?: string;
+    tags?: string[]; // פילטר לפי תגיות
   }): Promise<Ticket[]> {
     // If Supabase is not configured, return mock data
     if (!isSupabaseConfigured || !supabase) {
@@ -124,6 +125,13 @@ class TicketService {
       if (filters?.search) {
         query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%,customer_name.ilike.%${filters.search}%,customer_email.ilike.%${filters.search}%,customer_phone.ilike.%${filters.search}%,company_name.ilike.%${filters.search}%`);
       }
+      
+      // פילטור לפי תגיות - בדיקה אם עמודת tags מכילה אחת מהתגיות הנבחרות
+      if (filters?.tags && filters.tags.length > 0) {
+        // יצירת תנאי OR עבור כל תגית - בדיקה אם המערך מכיל את התגית
+        const tagConditions = filters.tags.map(tag => `tags.cs.{"${tag}"}`).join(',');
+        query = query.or(tagConditions);
+      }
 
       const { data, error } = await query;
 
@@ -147,6 +155,7 @@ class TicketService {
     category?: string;
     assigned_to?: string;
     search?: string;
+    tags?: string[]; // פילטר לפי תגיות
   }): Ticket[] {
     let filteredTickets = [...mockTickets];
 
@@ -165,6 +174,18 @@ class TicketService {
         ticket.title.toLowerCase().includes(searchLower) ||
         ticket.description.toLowerCase().includes(searchLower)
       );
+    }
+    
+    // פילטור לפי תגיות
+    if (filters?.tags && filters.tags.length > 0) {
+      filteredTickets = filteredTickets.filter(ticket => {
+        const ticketTags = ticket.tags || [];
+        return filters.tags!.some(filterTag => 
+          ticketTags.some(ticketTag => 
+            ticketTag.toLowerCase().includes(filterTag.toLowerCase())
+          )
+        );
+      });
     }
 
     return filteredTickets;
@@ -1098,6 +1119,45 @@ class TicketService {
       console.error('Failed to mark agent messages as read:', error);
       // אם העמודה לא קיימת, נמשיך בלי לזרוק שגיאה
       // זה מאפשר למערכת לעבוד גם אם העמודה עדיין לא קיימת בבסיס הנתונים
+    }
+  }
+
+  // שליפת כל התגיות הקיימות במערכת
+  async getAllTags(): Promise<string[]> {
+    if (!isSupabaseConfigured || !supabase) {
+      // במצב mock, נחזיר תגיות מהנתונים המדומים
+      const allTags = new Set<string>();
+      mockTickets.forEach(ticket => {
+        if (ticket.tags) {
+          ticket.tags.forEach(tag => allTags.add(tag));
+        }
+      });
+      return Array.from(allTags).sort();
+    }
+
+    try {
+      const { data: tickets, error } = await supabase
+        .from('tickets')
+        .select('tags')
+        .not('tags', 'is', null);
+
+      if (error) {
+        console.error('Error fetching tags:', error);
+        return [];
+      }
+
+      // איסוף כל התגיות מכל הכרטיסים
+      const allTags = new Set<string>();
+      tickets?.forEach(ticket => {
+        if (ticket.tags && Array.isArray(ticket.tags)) {
+          ticket.tags.forEach((tag: string) => allTags.add(tag));
+        }
+      });
+
+      return Array.from(allTags).sort();
+    } catch (error) {
+      console.error('Failed to fetch tags:', error);
+      return [];
     }
   }
 }

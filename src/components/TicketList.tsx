@@ -18,6 +18,7 @@ import { Ticket } from '../types';
 import { ticketService } from '../services/ticketService';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { NewTicketModal } from './NewTicketModal';
+import TagSelector from './TagSelector';
 
 const priorityColors = {
   low: 'bg-green-100 text-green-800',
@@ -238,6 +239,16 @@ const FilterBar = ({ filters, onFilterChange }: {
               className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+        </div>
+        
+        {/* בורר תגיות */}
+        <div className="min-w-0">
+          <TagSelector
+            selectedTags={filters.tags || []}
+            onTagsChange={(tags) => onFilterChange({ ...filters, tags: tags.length > 0 ? tags : undefined })}
+            placeholder="חפש תגיות..."
+            className="min-w-[200px]"
+          />
         </div>
       </div>
     </div>

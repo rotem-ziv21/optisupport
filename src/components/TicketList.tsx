@@ -11,7 +11,11 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   SparklesIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  Squares2X2Icon,
+  Bars3Icon,
+  ChevronUpIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 import { Ticket } from '../types';
@@ -63,27 +67,24 @@ const riskLabels = {
 
 const SupabaseSetupBanner = () => {
   if (isSupabaseConfigured) return null;
-
+  
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-      <div className="flex items-start space-x-3 space-x-reverse">
-        <ExclamationCircleIcon className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-        <div>
-          <h3 className="text-sm font-medium text-amber-800 mb-1">
-            מסד הנתונים לא מוגדר
-          </h3>
-          <p className="text-sm text-amber-700 mb-3">
-            כרגע אתה רואה נתונים לדוגמה. כדי להתחיל לעבוד עם נתונים אמיתיים, עליך להגדיר Supabase:
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6"
+    >
+      <div className="flex items-start">
+        <ExclamationTriangleIcon className="h-5 w-5 text-yellow-600 mt-0.5 ml-2" />
+        <div className="flex-1">
+          <h3 className="text-sm font-medium text-yellow-800">מצב הדגמה</h3>
+          <p className="text-sm text-yellow-700 mt-1">
+            המערכת פועלת במצב הדגמה עם נתונים מדומים. 
+            להפעלת המערכת המלאה יש להגדיר את Supabase.
           </p>
-          <ol className="text-sm text-amber-700 space-y-1 mr-4">
-            <li>1. צור פרויקט חדש ב-<a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-800">Supabase</a></li>
-            <li>2. העתק את ה-URL וה-API Key מהגדרות הפרויקט</li>
-            <li>3. עדכן את הקובץ <code className="bg-amber-100 px-1 rounded">.env</code> עם הערכים האמיתיים</li>
-            <li>4. הפעל מחדש את השרת</li>
-          </ol>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -103,9 +104,9 @@ const TicketCard = ({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3 space-x-reverse">
           <div className="p-2 bg-gray-50 rounded-lg">
-            <TicketIcon className="h-5 w-5 text-gray-600" />
+            <StatusIcon className="h-5 w-5 text-gray-600" />
           </div>
-          <div>
+          <div className="flex-1">
             <h3 className="text-lg font-medium text-gray-900 mb-1">{ticket.title}</h3>
             <p className="text-sm text-gray-500">{ticket.customer_name} • {ticket.customer_email}</p>
           </div>
@@ -116,7 +117,10 @@ const TicketCard = ({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
               <SparklesIcon className="h-4 w-4" />
             </div>
           )}
-          <span className={clsx('inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', priorityColors[ticket.priority])}>
+          <span className={clsx(
+            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+            priorityColors[ticket.priority]
+          )}>
             {priorityLabels[ticket.priority]}
           </span>
         </div>
@@ -124,16 +128,20 @@ const TicketCard = ({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
 
       <p className="text-gray-600 text-sm mb-4 line-clamp-2">{ticket.description}</p>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-4 space-x-reverse">
+          <span className={clsx(
+            'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
+            statusColors[ticket.status]
+          )}>
+            {statusLabels[ticket.status]}
+          </span>
           <div className="flex items-center space-x-1 space-x-reverse">
-            <StatusIcon className="h-4 w-4 text-gray-400" />
-            <span className={clsx('inline-flex items-center px-2 py-1 rounded-full text-xs font-medium', statusColors[ticket.status])}>
-              {statusLabels[ticket.status]}
-            </span>
-          </div>
-          <div className="flex items-center space-x-1 space-x-reverse">
-            <div className={clsx('w-2 h-2 rounded-full', riskColor)} />
+            <div className={clsx(
+              'w-2 h-2 rounded-full',
+              ticket.risk_level === 'high' ? 'bg-red-500' : 
+              ticket.risk_level === 'medium' ? 'bg-orange-500' : 'bg-green-500'
+            )} />
             <span className="text-xs text-gray-500">סיכון {riskLabels[ticket.risk_level]}</span>
           </div>
         </div>
@@ -143,7 +151,7 @@ const TicketCard = ({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
       </div>
 
       {ticket.tags && ticket.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-3">
+        <div className="flex flex-wrap gap-1">
           {ticket.tags.slice(0, 3).map((tag, index) => (
             <span
               key={index}
@@ -158,10 +166,10 @@ const TicketCard = ({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
         </div>
       )}
 
-      {ticket.sentiment_score !== 0 && (
+      {ticket.sentiment_score !== undefined && (
         <div className="mt-3 flex items-center space-x-2 space-x-reverse">
-          <div className="text-xs text-gray-500">סנטימנט:</div>
-          <div className={clsx('w-full bg-gray-200 rounded-full h-1.5')}>
+          <span className="text-xs text-gray-500">סנטימנט:</span>
+          <div className="flex-1 bg-gray-200 rounded-full h-1.5 max-w-20">
             <div 
               className={clsx(
                 'h-1.5 rounded-full transition-all',
@@ -180,9 +188,158 @@ const TicketCard = ({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
   );
 };
 
-const FilterBar = ({ filters, onFilterChange }: {
+// Table Component
+const TicketTable = ({ tickets, onTicketClick, sortConfig, onSort }: {
+  tickets: Ticket[];
+  onTicketClick: (ticket: Ticket) => void;
+  sortConfig: { key: string; direction: 'asc' | 'desc' } | null;
+  onSort: (key: string) => void;
+}) => {
+  const getSortIcon = (columnKey: string) => {
+    if (!sortConfig || sortConfig.key !== columnKey) {
+      return (
+        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+        </svg>
+      );
+    }
+    return sortConfig.direction === 'asc' ? (
+      <ChevronUpIcon className="h-4 w-4 text-gray-600" />
+    ) : (
+      <ChevronDownIcon className="h-4 w-4 text-gray-600" />
+    );
+  };
+
+  return (
+    <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <button onClick={() => onSort('id')} className="flex items-center gap-1 hover:text-gray-700">
+                  <span>#</span>
+                  {getSortIcon('id')}
+                </button>
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <button onClick={() => onSort('title')} className="flex items-center gap-1 hover:text-gray-700">
+                  <span>כותרת</span>
+                  {getSortIcon('title')}
+                </button>
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <button onClick={() => onSort('customer_name')} className="flex items-center gap-1 hover:text-gray-700">
+                  <span>לקוח</span>
+                  {getSortIcon('customer_name')}
+                </button>
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <button onClick={() => onSort('status')} className="flex items-center gap-1 hover:text-gray-700">
+                  <span>סטטוס</span>
+                  {getSortIcon('status')}
+                </button>
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <button onClick={() => onSort('priority')} className="flex items-center gap-1 hover:text-gray-700">
+                  <span>עדיפות</span>
+                  {getSortIcon('priority')}
+                </button>
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                תגיות
+              </th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <button onClick={() => onSort('created_at')} className="flex items-center gap-1 hover:text-gray-700">
+                  <span>תאריך</span>
+                  {getSortIcon('created_at')}
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {tickets.map((ticket) => (
+              <tr
+                key={ticket.id}
+                onClick={() => onTicketClick(ticket)}
+                className="cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {ticket.ticket_number || ticket.id}
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  <div className="max-w-xs">
+                    <div className="font-medium truncate">{ticket.title}</div>
+                    <div className="text-gray-500 text-xs truncate mt-1">{ticket.description}</div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <div>
+                    <div className="font-medium">{ticket.customer_name}</div>
+                    <div className="text-gray-500 text-xs">{ticket.customer_email}</div>
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={clsx(
+                    'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium',
+                    statusColors[ticket.status]
+                  )}>
+                    {statusLabels[ticket.status]}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={clsx(
+                    'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                    priorityColors[ticket.priority]
+                  )}>
+                    {priorityLabels[ticket.priority]}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-900">
+                  <div className="flex flex-wrap gap-1 max-w-xs">
+                    {ticket.tags && ticket.tags.length > 0 ? (
+                      <>
+                        {ticket.tags.slice(0, 2).map((tag, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                        {ticket.tags.length > 2 && (
+                          <span className="text-xs text-gray-500">+{ticket.tags.length - 2}</span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-xs text-gray-400">-</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {new Date(ticket.created_at).toLocaleDateString('he-IL')}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {tickets.length > 0 && (
+        <div className="bg-gray-50 px-6 py-3 border-t border-gray-200">
+          <div className="text-sm text-gray-700">
+            סה"כ <span className="font-medium">{tickets.length}</span> כרטיסים
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const FilterBar = ({ filters, onFilterChange, viewMode, onViewModeChange }: {
   filters: any;
   onFilterChange: (filters: any) => void;
+  viewMode: 'cards' | 'table';
+  onViewModeChange: (mode: 'cards' | 'table') => void;
 }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -228,20 +385,19 @@ const FilterBar = ({ filters, onFilterChange }: {
           <option value="feature_request">בקשת תכונה</option>
         </select>
 
-        <div className="flex-1 min-w-0">
-          <div className="relative">
-            <MagnifyingGlassIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="חיפוש לפי כותרת, תיאור, שם, מייל, טלפון או שם עסק..."
-              value={filters.search || ''}
-              onChange={(e) => onFilterChange({ ...filters, search: e.target.value || undefined })}
-              className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+        <div className="relative flex-1 min-w-[200px]">
+          <input
+            type="text"
+            placeholder="חיפוש לפי כותרת, תיאור, לקוח או מייל..."
+            value={filters.search || ''}
+            onChange={(e) => onFilterChange({ ...filters, search: e.target.value || undefined })}
+            className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+            <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
           </div>
         </div>
-        
-        {/* בורר תגיות */}
+
         <div className="min-w-0">
           <TagSelector
             selectedTags={filters.tags || []}
@@ -249,6 +405,34 @@ const FilterBar = ({ filters, onFilterChange }: {
             placeholder="חפש תגיות..."
             className="min-w-[200px]"
           />
+        </div>
+        
+        {/* View Mode Toggle */}
+        <div className="flex items-center bg-gray-100 rounded-lg p-1 mr-auto">
+          <button
+            onClick={() => onViewModeChange('cards')}
+            className={clsx(
+              'p-2 rounded-md transition-colors',
+              viewMode === 'cards' 
+                ? 'bg-white text-blue-600 shadow-sm' 
+                : 'text-gray-500 hover:text-gray-700'
+            )}
+            title="תצוגת כרטיסים"
+          >
+            <Squares2X2Icon className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => onViewModeChange('table')}
+            className={clsx(
+              'p-2 rounded-md transition-colors',
+              viewMode === 'table' 
+                ? 'bg-white text-blue-600 shadow-sm' 
+                : 'text-gray-500 hover:text-gray-700'
+            )}
+            title="תצוגת טבלה"
+          >
+            <Bars3Icon className="h-5 w-5" />
+          </button>
         </div>
       </div>
     </div>
@@ -261,6 +445,8 @@ export const TicketList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({});
   const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   const fetchTickets = async () => {
     try {
@@ -292,6 +478,34 @@ export const TicketList: React.FC = () => {
     fetchTickets(); // Refresh the ticket list
   };
 
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Sort tickets based on sortConfig
+  const sortedTickets = [...tickets].sort((a, b) => {
+    if (!sortConfig) return 0;
+    
+    const { key, direction } = sortConfig;
+    const aValue = a[key as keyof Ticket];
+    const bValue = b[key as keyof Ticket];
+
+    if (aValue === null || aValue === undefined) return 1;
+    if (bValue === null || bValue === undefined) return -1;
+
+    if (aValue < bValue) {
+      return direction === 'asc' ? -1 : 1;
+    }
+    if (aValue > bValue) {
+      return direction === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -309,25 +523,41 @@ export const TicketList: React.FC = () => {
 
       <SupabaseSetupBanner />
 
-      <FilterBar filters={filters} onFilterChange={setFilters} />
+      <FilterBar 
+        filters={filters} 
+        onFilterChange={setFilters}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
 
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {tickets.map((ticket) => (
-            <TicketCard
-              key={ticket.id}
-              ticket={ticket}
-              onClick={() => handleTicketClick(ticket)}
+        <>
+          {viewMode === 'cards' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {sortedTickets.map((ticket) => (
+                <TicketCard
+                  key={ticket.id}
+                  ticket={ticket}
+                  onClick={() => handleTicketClick(ticket)}
+                />
+              ))}
+            </div>
+          ) : (
+            <TicketTable
+              tickets={sortedTickets}
+              onTicketClick={handleTicketClick}
+              sortConfig={sortConfig}
+              onSort={handleSort}
             />
-          ))}
-        </div>
+          )}
+        </>
       )}
 
-      {!loading && tickets.length === 0 && (
+      {!loading && sortedTickets.length === 0 && (
         <div className="text-center py-12">
           <TicketIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">לא נמצאו כרטיסים</h3>
@@ -349,4 +579,4 @@ export const TicketList: React.FC = () => {
       />
     </div>
   );
-}
+};

@@ -11,7 +11,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   SparklesIcon,
-  ExclamationCircleIcon,
+
   Squares2X2Icon,
   Bars3Icon,
   ChevronUpIcon,
@@ -90,8 +90,6 @@ const SupabaseSetupBanner = () => {
 
 const TicketCard = ({ ticket, onClick }: { ticket: Ticket; onClick: () => void }) => {
   const StatusIcon = statusIcons[ticket.status];
-  const riskColor = ticket.risk_level === 'high' ? 'text-red-500' : 
-                   ticket.risk_level === 'medium' ? 'text-orange-500' : 'text-green-500';
 
   return (
     <motion.div
@@ -335,12 +333,17 @@ const TicketTable = ({ tickets, onTicketClick, sortConfig, onSort }: {
   );
 };
 
-const FilterBar = ({ filters, onFilterChange, viewMode, onViewModeChange }: {
+const FilterBar = ({ filters, onFilterChange, viewMode, onViewModeChange, onClearFilters }: {
   filters: any;
   onFilterChange: (filters: any) => void;
   viewMode: 'cards' | 'table';
   onViewModeChange: (mode: 'cards' | 'table') => void;
+  onClearFilters?: () => void;
 }) => {
+  // בדיקה אם יש פילטרים פעילים
+  const hasActiveFilters = Object.values(filters).some(value => 
+    value !== undefined && value !== '' && (Array.isArray(value) ? value.length > 0 : true)
+  );
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
       <div className="flex flex-wrap gap-4 items-center">
@@ -407,6 +410,18 @@ const FilterBar = ({ filters, onFilterChange, viewMode, onViewModeChange }: {
           />
         </div>
         
+        {/* Clear Filters Button */}
+        {hasActiveFilters && onClearFilters && (
+          <button
+            onClick={onClearFilters}
+            className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            title="נקה מסננים"
+          >
+            <XCircleIcon className="h-4 w-4 ml-1" />
+            נקה הכל
+          </button>
+        )}
+        
         {/* View Mode Toggle */}
         <div className="flex items-center bg-gray-100 rounded-lg p-1 mr-auto">
           <button
@@ -439,14 +454,77 @@ const FilterBar = ({ filters, onFilterChange, viewMode, onViewModeChange }: {
   );
 };
 
+// פונקציות עזר לשמירה וטעינה של פילטרים
+const FILTERS_STORAGE_KEY = 'ticketList_filters';
+const VIEW_MODE_STORAGE_KEY = 'ticketList_viewMode';
+const SORT_CONFIG_STORAGE_KEY = 'ticketList_sortConfig';
+
+const loadFiltersFromStorage = () => {
+  try {
+    const saved = localStorage.getItem(FILTERS_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch (error) {
+    console.warn('Failed to load filters from localStorage:', error);
+    return {};
+  }
+};
+
+const saveFiltersToStorage = (filters: any) => {
+  try {
+    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+  } catch (error) {
+    console.warn('Failed to save filters to localStorage:', error);
+  }
+};
+
+const loadViewModeFromStorage = (): 'cards' | 'table' => {
+  try {
+    const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    return saved === 'table' ? 'table' : 'cards';
+  } catch (error) {
+    console.warn('Failed to load view mode from localStorage:', error);
+    return 'cards';
+  }
+};
+
+const saveViewModeToStorage = (viewMode: 'cards' | 'table') => {
+  try {
+    localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+  } catch (error) {
+    console.warn('Failed to save view mode to localStorage:', error);
+  }
+};
+
+const loadSortConfigFromStorage = () => {
+  try {
+    const saved = localStorage.getItem(SORT_CONFIG_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch (error) {
+    console.warn('Failed to load sort config from localStorage:', error);
+    return null;
+  }
+};
+
+const saveSortConfigToStorage = (sortConfig: { key: string; direction: 'asc' | 'desc' } | null) => {
+  try {
+    if (sortConfig) {
+      localStorage.setItem(SORT_CONFIG_STORAGE_KEY, JSON.stringify(sortConfig));
+    } else {
+      localStorage.removeItem(SORT_CONFIG_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn('Failed to save sort config to localStorage:', error);
+  }
+};
+
 export const TicketList: React.FC = () => {
   const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({});
+  const [filters, setFilters] = useState(() => loadFiltersFromStorage());
   const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => loadViewModeFromStorage());
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(() => loadSortConfigFromStorage());
 
   const fetchTickets = async () => {
     try {
@@ -461,9 +539,21 @@ export const TicketList: React.FC = () => {
     }
   };
 
+  // שמירת פילטרים ב-localStorage כשהם משתנים
   useEffect(() => {
+    saveFiltersToStorage(filters);
     fetchTickets();
   }, [filters]);
+
+  // שמירת מצב תצוגה ב-localStorage כשהוא משתנה
+  useEffect(() => {
+    saveViewModeToStorage(viewMode);
+  }, [viewMode]);
+
+  // שמירת הגדרות מיון ב-localStorage כשהן משתנות
+  useEffect(() => {
+    saveSortConfigToStorage(sortConfig);
+  }, [sortConfig]);
 
   const handleTicketClick = (ticket: Ticket) => {
     // נווט לדף הכרטיס המלא
@@ -528,6 +618,10 @@ export const TicketList: React.FC = () => {
         onFilterChange={setFilters}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        onClearFilters={() => {
+          setFilters({});
+          setSortConfig(null);
+        }}
       />
 
       {loading ? (

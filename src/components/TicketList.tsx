@@ -11,11 +11,13 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   SparklesIcon,
-
   Squares2X2Icon,
   Bars3Icon,
   ChevronUpIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  BoltIcon,
+  CalendarDaysIcon,
+  UserIcon
 } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
 import { Ticket } from '../types';
@@ -517,12 +519,15 @@ const saveSortConfigToStorage = (sortConfig: { key: string; direction: 'asc' | '
   }
 };
 
+
+
 export const TicketList: React.FC = () => {
   const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState(() => loadFiltersFromStorage());
   const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
+  const [showUrgentOnly, setShowUrgentOnly] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => loadViewModeFromStorage());
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(() => loadSortConfigFromStorage());
 
@@ -576,63 +581,138 @@ export const TicketList: React.FC = () => {
     setSortConfig({ key, direction });
   };
 
-  // Sort tickets based on sortConfig
-  const sortedTickets = [...tickets].sort((a, b) => {
-    if (!sortConfig) return 0;
-    
-    const { key, direction } = sortConfig;
-    const aValue = a[key as keyof Ticket];
-    const bValue = b[key as keyof Ticket];
+  // פונקציה לזיהוי כרטיסים דחופים
+  const getUrgentTickets = (tickets: Ticket[]) => {
+    const now = new Date();
+    return tickets.filter(ticket => {
+      const createdAt = new Date(ticket.created_at);
+      const hoursOld = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
 
-    if (aValue === null || aValue === undefined) return 1;
-    if (bValue === null || bValue === undefined) return -1;
+      // כרטיסים דחופים או בעדיפות גבוהה שלא טופלו
+      if ((ticket.priority === 'urgent' || ticket.priority === 'high') && ticket.status === 'open') {
+        return true;
+      }
 
-    if (aValue < bValue) {
-      return direction === 'asc' ? -1 : 1;
-    }
-    if (aValue > bValue) {
-      return direction === 'asc' ? 1 : -1;
-    }
-    return 0;
+      // כרטיסים בטיפול יותר מ-24 שעות
+      if (ticket.status === 'in_progress' && hoursOld > 24) {
+        return true;
+      }
+
+      // כרטיסים ישנים שלא טופלו (יותר מ-48 שעות)
+      if (ticket.status === 'open' && hoursOld > 48) {
+        return true;
+      }
+
+      // כרטיסים עם סנטימנט שלילי חזק
+      if (ticket.sentiment_score && ticket.sentiment_score < -0.5 && ticket.status !== 'resolved') {
+        return true;
+      }
+
+      return false;
+    });
+  };
+
+  // פילטר כרטיסים לפי הפילטרים הרגילים
+  const filteredTickets = tickets.filter(ticket => {
+    if (filters.status && ticket.status !== filters.status) return false;
+    if (filters.priority && ticket.priority !== filters.priority) return false;
+    if (filters.category && ticket.category !== filters.category) return false;
+    if (filters.search && !ticket.title.toLowerCase().includes(filters.search.toLowerCase()) && 
+        !ticket.description.toLowerCase().includes(filters.search.toLowerCase()) &&
+        !ticket.customer_name.toLowerCase().includes(filters.search.toLowerCase())) return false;
+    if (filters.tags && filters.tags.length > 0 && 
+        !filters.tags.some((tag: string) => ticket.tags?.includes(tag))) return false;
+    return true;
   });
+
+  // החלת פילטר דחוף אם מופעל
+  const ticketsToShow = showUrgentOnly ? getUrgentTickets(filteredTickets) : filteredTickets;
+  
+  const sortedTickets = sortConfig
+    ? [...ticketsToShow].sort((a, b) => {
+        const aValue = a[sortConfig.key as keyof Ticket];
+        const bValue = b[sortConfig.key as keyof Ticket];
+        
+        if (aValue === null || aValue === undefined) return 1;
+        if (bValue === null || bValue === undefined) return -1;
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      })
+    : ticketsToShow;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">כרטיסי תמיכה</h1>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleNewTicket}
-          className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors shadow-sm"
-        >
-          <PlusIcon className="h-4 w-4 ml-2" />
-          כרטיס חדש
-        </motion.button>
+        <div className="flex items-center space-x-3 space-x-reverse">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowUrgentOnly(!showUrgentOnly)}
+            className={clsx(
+              "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors shadow-sm",
+              showUrgentOnly 
+                ? "bg-red-700 text-white hover:bg-red-800 focus:ring-red-500" 
+                : "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
+            )}
+          >
+            <BoltIcon className="h-4 w-4 ml-2" />
+            {showUrgentOnly ? 'הצג הכל' : 'מה דחוף לי עכשיו?'}
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleNewTicket}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors shadow-sm"
+          >
+            <PlusIcon className="h-4 w-4 ml-2" />
+            כרטיס חדש
+          </motion.button>
+        </div>
       </div>
 
       <SupabaseSetupBanner />
 
-      <FilterBar 
-        filters={filters} 
+      {showUrgentOnly && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center space-x-2 space-x-reverse">
+            <BoltIcon className="h-5 w-5 text-red-600" />
+            <h3 className="text-sm font-medium text-red-800">
+              מציג רק כרטיסים דחופים ({getUrgentTickets(filteredTickets).length} מתוך {filteredTickets.length})
+            </h3>
+          </div>
+          <p className="text-xs text-red-600 mt-1">
+            כרטיסים בעדיפות גבוהה/דחופה, כרטיסים בטיפול יותר מ-24 שעות, כרטיסים ישנים ולקוחות כועסים
+          </p>
+        </div>
+      )}
+
+      <FilterBar
+        filters={filters}
         onFilterChange={setFilters}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onClearFilters={() => {
-          setFilters({});
+          setFilters(loadFiltersFromStorage());
           setSortConfig(null);
         }}
       />
 
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       ) : (
-        <>
+        <div className="space-y-4">
           {viewMode === 'cards' ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {sortedTickets.map((ticket) => (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {sortedTickets.map(ticket => (
                 <TicketCard
                   key={ticket.id}
                   ticket={ticket}
@@ -648,29 +728,26 @@ export const TicketList: React.FC = () => {
               onSort={handleSort}
             />
           )}
-        </>
+        </div>
       )}
 
       {!loading && sortedTickets.length === 0 && (
         <div className="text-center py-12">
-          <TicketIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">לא נמצאו כרטיסים</h3>
-          <p className="text-gray-500 mb-4">נסה לשנות את המסננים או ליצור כרטיס חדש.</p>
-          <button
-            onClick={handleNewTicket}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-          >
-            <PlusIcon className="h-4 w-4 ml-2" />
-            צור כרטיס ראשון
-          </button>
+          <TicketIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">אין כרטיסים</h3>
+          <p className="mt-1 text-sm text-gray-500">התחל עם יצירת כרטיס חדש.</p>
+          <div className="mt-6">
+            <button
+              type="button"
+              onClick={handleNewTicket}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <PlusIcon className="-ml-1 mr-2 h-5 w-5" aria-hidden="true" />
+              כרטיס חדש
+            </button>
+          </div>
         </div>
       )}
-
-      <NewTicketModal
-        isOpen={isNewTicketModalOpen}
-        onClose={() => setIsNewTicketModalOpen(false)}
-        onTicketCreated={handleTicketCreated}
-      />
     </div>
   );
 };

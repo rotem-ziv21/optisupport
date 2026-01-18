@@ -90,19 +90,58 @@ const SupabaseSetupBanner = () => {
   );
 };
 
-const TicketCard = ({ ticket, onClick }: { ticket: Ticket; onClick: () => void }) => {
+const TicketCard = ({
+  ticket,
+  onClick,
+  selectionMode,
+  isSelected,
+  onToggleSelect
+}: {
+  ticket: Ticket;
+  onClick: () => void;
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (ticketId: string) => void;
+}) => {
   const StatusIcon = statusIcons[ticket.status];
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleSelect?.(ticket.id);
+  };
+
+  const handleCardClick = () => {
+    if (selectionMode) {
+      onToggleSelect?.(ticket.id);
+    } else {
+      onClick();
+    }
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ scale: 1.02 }}
-      className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 cursor-pointer hover:shadow-md transition-all"
-      onClick={onClick}
+      whileHover={{ scale: selectionMode ? 1 : 1.02 }}
+      className={clsx(
+        "bg-white rounded-lg shadow-sm border p-6 cursor-pointer transition-all",
+        selectionMode && isSelected
+          ? "border-purple-500 bg-purple-50 ring-2 ring-purple-200"
+          : "border-gray-200 hover:shadow-md"
+      )}
+      onClick={handleCardClick}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3 space-x-reverse">
+          {selectionMode && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => {}}
+              onClick={handleCheckboxClick}
+              className="form-checkbox h-5 w-5 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+            />
+          )}
           <div className="p-2 bg-gray-50 rounded-lg">
             <StatusIcon className="h-5 w-5 text-gray-600" />
           </div>
@@ -189,11 +228,24 @@ const TicketCard = ({ ticket, onClick }: { ticket: Ticket; onClick: () => void }
 };
 
 // Table Component
-const TicketTable = ({ tickets, onTicketClick, sortConfig, onSort }: {
+const TicketTable = ({
+  tickets,
+  onTicketClick,
+  sortConfig,
+  onSort,
+  selectionMode,
+  selectedTicketIds,
+  onToggleSelect,
+  onToggleSelectAll
+}: {
   tickets: Ticket[];
   onTicketClick: (ticket: Ticket) => void;
   sortConfig: { key: string; direction: 'asc' | 'desc' } | null;
   onSort: (key: string) => void;
+  selectionMode?: boolean;
+  selectedTicketIds?: Set<string>;
+  onToggleSelect?: (ticketId: string) => void;
+  onToggleSelectAll?: () => void;
 }) => {
   const getSortIcon = (columnKey: string) => {
     if (!sortConfig || sortConfig.key !== columnKey) {
@@ -216,6 +268,16 @@ const TicketTable = ({ tickets, onTicketClick, sortConfig, onSort }: {
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
+              {selectionMode && (
+                <th className="px-4 py-3 text-right">
+                  <input
+                    type="checkbox"
+                    checked={selectedTicketIds?.size === tickets.length && tickets.length > 0}
+                    onChange={onToggleSelectAll}
+                    className="form-checkbox h-5 w-5 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                  />
+                </th>
+              )}
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <button onClick={() => onSort('id')} className="flex items-center gap-1 hover:text-gray-700">
                   <span>#</span>
@@ -261,9 +323,28 @@ const TicketTable = ({ tickets, onTicketClick, sortConfig, onSort }: {
             {tickets.map((ticket) => (
               <tr
                 key={ticket.id}
-                onClick={() => onTicketClick(ticket)}
-                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => selectionMode ? onToggleSelect?.(ticket.id) : onTicketClick(ticket)}
+                className={clsx(
+                  "cursor-pointer transition-colors",
+                  selectionMode && selectedTicketIds?.has(ticket.id)
+                    ? "bg-purple-50 hover:bg-purple-100"
+                    : "hover:bg-gray-50"
+                )}
               >
+                {selectionMode && (
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={selectedTicketIds?.has(ticket.id) || false}
+                      onChange={() => {}}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleSelect?.(ticket.id);
+                      }}
+                      className="form-checkbox h-5 w-5 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                    />
+                  </td>
+                )}
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {ticket.ticket_number || ticket.id}
                 </td>
@@ -531,6 +612,12 @@ export const TicketList: React.FC = () => {
   const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => loadViewModeFromStorage());
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(() => loadSortConfigFromStorage());
 
+  // Bulk selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedTicketIds, setSelectedTicketIds] = useState<Set<string>>(new Set());
+  const [bulkStatusDropdownOpen, setBulkStatusDropdownOpen] = useState(false);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+
   const fetchTickets = async () => {
     try {
       setLoading(true);
@@ -579,6 +666,58 @@ export const TicketList: React.FC = () => {
       direction = 'desc';
     }
     setSortConfig({ key, direction });
+  };
+
+  // Bulk selection functions
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      setSelectedTicketIds(new Set());
+    }
+    setSelectionMode(!selectionMode);
+    setBulkStatusDropdownOpen(false);
+  };
+
+  const toggleTicketSelection = (ticketId: string) => {
+    setSelectedTicketIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(ticketId)) {
+        newSet.delete(ticketId);
+      } else {
+        newSet.add(ticketId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTicketIds.size === sortedTickets.length) {
+      setSelectedTicketIds(new Set());
+    } else {
+      setSelectedTicketIds(new Set(sortedTickets.map(t => t.id)));
+    }
+  };
+
+  const handleBulkStatusUpdate = async (newStatus: 'open' | 'in_progress' | 'resolved' | 'closed') => {
+    if (selectedTicketIds.size === 0) return;
+
+    try {
+      setBulkUpdating(true);
+      setBulkStatusDropdownOpen(false);
+
+      const updatePromises = Array.from(selectedTicketIds).map(ticketId =>
+        ticketService.updateTicket(ticketId, { status: newStatus })
+      );
+
+      await Promise.all(updatePromises);
+      await fetchTickets();
+
+      setSelectedTicketIds(new Set());
+      setSelectionMode(false);
+    } catch (error) {
+      console.error('Failed to bulk update tickets:', error);
+    } finally {
+      setBulkUpdating(false);
+    }
   };
 
   // פונקציה לזיהוי כרטיסים דחופים
@@ -654,11 +793,25 @@ export const TicketList: React.FC = () => {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            onClick={toggleSelectionMode}
+            className={clsx(
+              "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors shadow-sm",
+              selectionMode
+                ? "bg-purple-700 text-white hover:bg-purple-800 focus:ring-purple-500"
+                : "bg-purple-600 text-white hover:bg-purple-700 focus:ring-purple-500"
+            )}
+          >
+            <CheckCircleIcon className="h-4 w-4 ml-2" />
+            {selectionMode ? 'בטל בחירה' : 'בחירה מרובה'}
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setShowUrgentOnly(!showUrgentOnly)}
             className={clsx(
               "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors shadow-sm",
-              showUrgentOnly 
-                ? "bg-red-700 text-white hover:bg-red-800 focus:ring-red-500" 
+              showUrgentOnly
+                ? "bg-red-700 text-white hover:bg-red-800 focus:ring-red-500"
                 : "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500"
             )}
           >
@@ -678,6 +831,93 @@ export const TicketList: React.FC = () => {
       </div>
 
       <SupabaseSetupBanner />
+
+      {selectionMode && (
+        <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center space-x-3 space-x-reverse">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedTicketIds.size === sortedTickets.length && sortedTickets.length > 0}
+                  onChange={toggleSelectAll}
+                  className="form-checkbox h-5 w-5 text-purple-600 rounded border-gray-300 focus:ring-purple-500"
+                />
+                <span className="mr-2 text-sm font-medium text-purple-800">בחר הכל</span>
+              </label>
+              <span className="text-sm text-purple-600">
+                {selectedTicketIds.size} מתוך {sortedTickets.length} נבחרו
+              </span>
+            </div>
+            <div className="flex items-center space-x-2 space-x-reverse">
+              <div className="relative">
+                <button
+                  onClick={() => setBulkStatusDropdownOpen(!bulkStatusDropdownOpen)}
+                  disabled={selectedTicketIds.size === 0 || bulkUpdating}
+                  className={clsx(
+                    "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                    selectedTicketIds.size === 0 || bulkUpdating
+                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                      : "bg-purple-600 text-white hover:bg-purple-700"
+                  )}
+                >
+                  {bulkUpdating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent ml-2" />
+                      מעדכן...
+                    </>
+                  ) : (
+                    <>
+                      שנה סטטוס
+                      <ChevronDownIcon className="h-4 w-4 mr-1" />
+                    </>
+                  )}
+                </button>
+                {bulkStatusDropdownOpen && (
+                  <div className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20">
+                    <div className="py-1" role="menu">
+                      <button
+                        onClick={() => handleBulkStatusUpdate('open')}
+                        className="w-full text-right px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 flex items-center"
+                      >
+                        <ClockIcon className="h-4 w-4 ml-2 text-blue-600" />
+                        פתוח
+                      </button>
+                      <button
+                        onClick={() => handleBulkStatusUpdate('in_progress')}
+                        className="w-full text-right px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 flex items-center"
+                      >
+                        <ExclamationTriangleIcon className="h-4 w-4 ml-2 text-yellow-600" />
+                        בטיפול
+                      </button>
+                      <button
+                        onClick={() => handleBulkStatusUpdate('resolved')}
+                        className="w-full text-right px-4 py-2 text-sm text-gray-700 hover:bg-green-50 flex items-center"
+                      >
+                        <CheckCircleIcon className="h-4 w-4 ml-2 text-green-600" />
+                        נפתר
+                      </button>
+                      <button
+                        onClick={() => handleBulkStatusUpdate('closed')}
+                        className="w-full text-right px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                      >
+                        <XCircleIcon className="h-4 w-4 ml-2 text-gray-600" />
+                        סגור
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={toggleSelectionMode}
+                className="px-3 py-2 text-sm text-purple-700 hover:bg-purple-100 rounded-lg transition-colors"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showUrgentOnly && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -717,6 +957,9 @@ export const TicketList: React.FC = () => {
                   key={ticket.id}
                   ticket={ticket}
                   onClick={() => handleTicketClick(ticket)}
+                  selectionMode={selectionMode}
+                  isSelected={selectedTicketIds.has(ticket.id)}
+                  onToggleSelect={toggleTicketSelection}
                 />
               ))}
             </div>
@@ -726,6 +969,10 @@ export const TicketList: React.FC = () => {
               onTicketClick={handleTicketClick}
               sortConfig={sortConfig}
               onSort={handleSort}
+              selectionMode={selectionMode}
+              selectedTicketIds={selectedTicketIds}
+              onToggleSelect={toggleTicketSelection}
+              onToggleSelectAll={toggleSelectAll}
             />
           )}
         </div>
